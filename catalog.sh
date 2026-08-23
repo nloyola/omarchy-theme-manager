@@ -9,6 +9,12 @@ catalog_url=https://raw.githubusercontent.com/limehawk/omarchy-theme-website/mai
 official_url=https://omarchy.org/themes/
 max_age=${OMARCHY_THEME_CATALOG_MAX_AGE:-21600}
 force_refresh=${1:-}
+catalog_max_bytes=$((8 * 1024 * 1024))
+official_max_bytes=$((2 * 1024 * 1024))
+output_max_bytes=$((4 * 1024 * 1024))
+catalog_max_items=2000
+official_max_items=1000
+official_repository_pattern='href="https://github\.com/[A-Za-z0-9-]{1,39}/[A-Za-z0-9_.-]{1,100}'
 
 if [[ ! $max_age =~ ^[0-9]+$ ]]; then
   echo "OMARCHY_THEME_CATALOG_MAX_AGE must be a non-negative integer." >&2
@@ -36,12 +42,15 @@ download() {
   local url=$1
   local destination=$2
   local validator=$3
+  local max_bytes=$4
   local temporary
 
   temporary=$(mktemp "$cache_dir/.download.XXXXXX")
   if curl --fail --location --silent --show-error \
+    --proto '=https' --max-filesize "$max_bytes" \
     --connect-timeout 10 --max-time 45 \
     --output "$temporary" "$url" \
+    && [[ $(stat -c '%s' "$temporary") -le $max_bytes ]] \
     && "$validator" "$temporary"; then
     mv "$temporary" "$destination"
     return 0
@@ -52,59 +61,94 @@ download() {
 }
 
 valid_catalog() {
-  jq -e 'type == "array" and length > 0 and all(.[]; (.name | type) == "string" and (.github_url | type) == "string")' "$1" >/dev/null
+  [[ $(stat -c '%s' "$1") -le $catalog_max_bytes ]] || return 1
+  jq -e \
+    --argjson maxItems "$catalog_max_items" \
+    'type == "array"
+      and length > 0
+      and length <= $maxItems
+      and all(.[];
+        type == "object"
+        and (.name | type) == "string"
+        and (.name | length) <= 120
+        and (.github_url | type) == "string"
+        and (.github_url | length) <= 512)' \
+    "$1" >/dev/null
 }
 
 valid_official_page() {
-  [[ $(grep -oE 'href="https://github\.com/[^"/]*/[^"/]+' "$1" | wc -l) -gt 20 ]]
+  local repository_count
+
+  [[ $(stat -c '%s' "$1") -le $official_max_bytes ]] || return 1
+  repository_count=$(grep -oE "$official_repository_pattern" "$1" | wc -l)
+  ((repository_count > 20 && repository_count <= official_max_items))
 }
 
 refresh_if_needed() {
   local path=$1
   local url=$2
   local validator=$3
+  local max_bytes=$4
 
-  if [[ $force_refresh == "--refresh" ]] || ! is_fresh "$path"; then
-    if ! download "$url" "$path" "$validator"; then
-      [[ -f $path ]] || return 1
+  if [[ $force_refresh == "--refresh" ]] || ! is_fresh "$path" || ! "$validator" "$path"; then
+    if ! download "$url" "$path" "$validator" "$max_bytes"; then
+      [[ -f $path ]] && "$validator" "$path" || return 1
       echo "Theme catalog refresh failed; using cached data." >&2
     fi
   fi
 }
 
-refresh_if_needed "$catalog_cache" "$catalog_url" valid_catalog
-refresh_if_needed "$official_cache" "$official_url" valid_official_page
+refresh_if_needed "$catalog_cache" "$catalog_url" valid_catalog "$catalog_max_bytes"
+refresh_if_needed "$official_cache" "$official_url" valid_official_page "$official_max_bytes"
 
 official_repositories=$(
-  grep -oE 'href="https://github\.com/[^"/]*/[^"/]+' "$official_cache" \
+  grep -oE "$official_repository_pattern" "$official_cache" \
     | cut -d '"' -f 2 \
     | sed -E 's/\.git$//; s#/$##' \
     | grep -vFx 'https://github.com/omacom-io/omarchy-site' \
-    | sort -fu
+    | sort -fu \
+    | head -n "$official_max_items"
 )
+
+output_file=$(mktemp "$cache_dir/.catalog-output.XXXXXX")
+trap 'rm -f "$output_file"' EXIT
 
 jq \
   --arg officialRepositories "$official_repositories" \
   --arg fetchedAt "$(date --iso-8601=seconds)" \
-  '{
+  --argjson maxItems "$catalog_max_items" \
+  'def bounded_string($maximum):
+    if type == "string" then .[0:$maximum] else "" end;
+  {
     sourceUrl: "https://omarchytheme.com/",
     fetchedAt: $fetchedAt,
     officialRepositories: ($officialRepositories | split("\n") | map(select(length > 0))),
     themes: [
-      .[]
+      limit($maxItems; .[])
       | select(.is_builtin != 1)
       | {
-          name,
-          repositoryUrl: (.canonical_github_url // .github_url),
-          owner: .github_owner,
-          description,
-          stars,
-          apps: .apps_json,
-          securityWarnings: .security_warnings,
+          name: (.name | bounded_string(120)),
+          repositoryUrl: ((.canonical_github_url // .github_url) | bounded_string(512)),
+          owner: (.github_owner | bounded_string(80)),
+          description: (.description | bounded_string(500)),
+          stars: (if (.stars | type) == "number" then .stars else 0 end),
+          apps: (.apps_json | bounded_string(4096)),
+          securityWarnings: (.security_warnings | bounded_string(8192)),
           # The default Quickshell Qt image stack does not necessarily include
           # the optional WebP decoder. Prefer the repository preview so the
           # catalog works on a stock Omarchy installation.
-          previewUrl: .preview_url
+          previewUrl: (.preview_url | bounded_string(512))
         }
     ]
-  }' "$catalog_cache"
+  }' "$catalog_cache" >"$output_file"
+
+if [[ $(stat -c '%s' "$output_file") -gt $output_max_bytes ]]; then
+  echo "Theme catalog output exceeds the safe size limit." >&2
+  exit 1
+fi
+
+jq -e --argjson maxItems "$catalog_max_items" \
+  'type == "object" and (.themes | type) == "array" and (.themes | length) <= $maxItems' \
+  "$output_file" >/dev/null
+
+cat "$output_file"

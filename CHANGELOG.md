@@ -8,6 +8,8 @@
 - Deduplicate by canonical GitHub repository and block installed or stock-theme
   collisions.
 - Add validated caching with offline fallback.
+- Bound remote downloads, catalog records, and the QML payload, and allowlist
+  GitHub preview hosts and paths.
 - Preserve the native theme and background picker behavior.
 - Add model tests and reproducible JavaScript, shell, QML, formatting, and
   manifest checks.

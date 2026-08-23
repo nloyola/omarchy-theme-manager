@@ -60,8 +60,10 @@ Review plugin and theme sources before enabling them.
 Theme Manager does not request elevated privileges, write to
 `/usr/share/omarchy`, or build shell commands from remote data. It accepts only
 normalized GitHub repository URLs, passes process arguments separately to
-Omarchy's CLI, and treats catalog text as bounded plain text. A catalog entry or
-official badge is discovery metadata, not a security endorsement.
+Omarchy's CLI, and treats catalog text as bounded plain text. Remote downloads,
+record counts, and the QML payload have hard limits; preview images are loaded
+only from allowlisted GitHub hosts and paths. A catalog entry or official badge
+is discovery metadata, not a security endorsement.
 
 ## Development
 

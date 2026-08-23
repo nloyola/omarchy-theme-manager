@@ -91,15 +91,27 @@ test("blocks installed repositories and stock-slug collisions", () => {
   assert.equal(bySlug.fresh.canInstall, true)
 })
 
-test("sanitizes remote display values and rejects non-HTTPS previews", () => {
+test("sanitizes remote display values and allowlists GitHub preview hosts", () => {
   assert.equal(model.plainTextValue("<b>Night</b>\nTheme"), "b Night /b Theme")
   assert.deepEqual(model.parsedArray("not-json"), [])
   assert.equal(
-    model.safePreviewUrl("https://example.com/preview.png"),
-    "https://example.com/preview.png"
+    model.safePreviewUrl("https://raw.githubusercontent.com/example/theme/main/preview.png"),
+    "https://raw.githubusercontent.com/example/theme/main/preview.png"
   )
+  assert.equal(
+    model.safePreviewUrl(
+      "https://github.com/user-attachments/assets/f0b6952e-c436-4c03-b496-0ecc6679210a"
+    ),
+    "https://github.com/user-attachments/assets/f0b6952e-c436-4c03-b496-0ecc6679210a"
+  )
+  assert.equal(model.safePreviewUrl("https://example.com/preview.png"), "")
+  assert.equal(model.safePreviewUrl("https://raw.githubusercontent.com.evil/preview.png"), "")
+  assert.equal(model.safePreviewUrl("https://github.com/example/theme/blob/main/preview.png"), "")
   assert.equal(model.safePreviewUrl("file:///etc/passwd"), "")
-  assert.equal(model.safePreviewUrl("https://example.com/a b.png"), "")
+  assert.equal(
+    model.safePreviewUrl("https://raw.githubusercontent.com/example/theme/main/a b.png"),
+    ""
+  )
 })
 
 test("surfaces catalog warnings in an explicit installation confirmation", () => {

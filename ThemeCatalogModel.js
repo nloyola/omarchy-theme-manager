@@ -12,7 +12,10 @@ const plainTextValue = (value, maximumLength = 240) =>
 
 const safePreviewUrl = (value) => {
   const url = stringValue(value).trim()
-  return /^https:\/\/[^\s<>"']+$/i.test(url) ? url : ""
+  const rawGitHubUrl =
+    /^https:\/\/raw\.githubusercontent\.com\/[a-z0-9_.-]+\/[a-z0-9_.-]+\/[^/?#]+\/[^\s?#]+(?:\?[^\s#]*)?$/i
+  const githubAttachmentUrl = /^https:\/\/github\.com\/user-attachments\/assets\/[0-9a-f-]{36}$/i
+  return rawGitHubUrl.test(url) || githubAttachmentUrl.test(url) ? url : ""
 }
 
 const normalizeRepositoryUrl = (url) => {
