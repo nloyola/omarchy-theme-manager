@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.mtolhuys.theme-manager",
+  "name": "Omarchy Theme Manager",
+  "version": "0.1.0",
+  "author": "Maarten Tolhuijs",
+  "license": "MIT",
+  "description": "Browse, install, and manage Omarchy themes from the native full-screen switcher.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "ImagePicker.qml"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.image-picker"
+  }
+}
