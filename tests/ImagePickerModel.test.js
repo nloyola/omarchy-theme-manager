@@ -1,7 +1,7 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const model = require("../ImagePickerModel.js")
+const model = require("../v0200/ImagePickerModel.js")
 
 const images = [
   { filePath: "/cache/amber-byte.png" },

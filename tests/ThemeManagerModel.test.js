@@ -1,7 +1,7 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const model = require("../ThemeManagerModel.js")
+const model = require("../v0200/ThemeManagerModel.js")
 
 test("recognizes only paths from the Omarchy theme preview cache", () => {
   assert.equal(

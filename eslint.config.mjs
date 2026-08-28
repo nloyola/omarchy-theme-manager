@@ -1,10 +1,7 @@
 const sharedRules = {
   eqeqeq: "error",
   "no-undef": "error",
-  "no-unused-vars": [
-    "error",
-    { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }
-  ],
+  "no-unused-vars": ["error", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
   "no-var": "error",
   "object-shorthand": "error",
   "prefer-arrow-callback": "error",

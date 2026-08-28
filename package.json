@@ -1,6 +1,6 @@
 {
   "name": "omarchy-theme-manager",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Quality tooling for the Omarchy Theme Manager plugin.",
   "license": "MIT",
@@ -10,10 +10,10 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "lint:js": "eslint .",
-    "lint:qml": "/usr/lib/qt6/bin/qmllint -i /usr/share/omarchy/shell/Commons/qmldir -i /usr/share/omarchy/shell/Ui/qmldir ImagePicker.qml ThemeManagerController.qml ThemeCatalogController.qml ImagePickerModel.js ThemeManagerModel.js ThemeCatalogModel.js",
-    "lint:shell": "shellcheck list.sh catalog.sh theme-inventory.sh && shfmt -d -i 2 -ci -bn list.sh catalog.sh theme-inventory.sh",
-    "format:check": "prettier --check '*.js' 'tests/*.js' '*.json' '*.md' 'assets/*.md'",
-    "format": "prettier --write '*.js' 'tests/*.js' '*.json' '*.md' 'assets/*.md' && shfmt -w -i 2 -ci -bn list.sh catalog.sh theme-inventory.sh",
+    "lint:qml": "/usr/lib/qt6/bin/qmllint -i /usr/share/omarchy/shell/Commons/qmldir -i /usr/share/omarchy/shell/Ui/qmldir v0200/ImagePicker.qml v0200/ThemeManagerController.qml v0200/ThemeCatalogController.qml v0200/WallpaperBrowserController.qml v0200/WallhavenFilterBar.qml v0200/WallhavenFilterSheet.qml v0200/ImagePickerModel.js v0200/ThemeManagerModel.js v0200/ThemeCatalogModel.js v0200/WallpaperBrowserModel.js",
+    "lint:shell": "shellcheck list.sh catalog.sh theme-inventory.sh tests/lab/acceptance.sh && shfmt -d -i 2 -ci -bn list.sh catalog.sh theme-inventory.sh tests/lab/acceptance.sh",
+    "format:check": "prettier --check 'v*/**/*.js' 'tests/*.js' '*.mjs' '*.json' '*.md' 'assets/*.md'",
+    "format": "prettier --write 'v*/**/*.js' 'tests/*.js' '*.mjs' '*.json' '*.md' 'assets/*.md' && shfmt -w -i 2 -ci -bn list.sh catalog.sh theme-inventory.sh tests/lab/acceptance.sh",
     "validate": "omarchy plugin validate .",
     "quality": "npm run test && npm run lint:js && npm run lint:shell && npm run lint:qml && npm run format:check && npm run validate"
   }

@@ -1,7 +1,7 @@
 const test = require("node:test")
 const assert = require("node:assert/strict")
 
-const model = require("../ThemeCatalogModel.js")
+const model = require("../v0200/ThemeCatalogModel.js")
 
 test("normalizes supported GitHub repository URL variants", () => {
   const expected = "https://github.com/example/omarchy-night-theme"
