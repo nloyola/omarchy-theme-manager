@@ -2,7 +2,7 @@
 
 - `../preview.webp` — primary marketplace and website preview of the catalog.
 - `catalog-browse.webp` — wide catalog view showing themes on both sides of the selection.
-- `installed-themes.webp` — the installed-theme view with search and active-theme status.
+- `theme-library.webp` — the installed-theme view with search and active-theme status.
 - `safety-confirmation.webp` — the confirmation step with catalog security notes.
 - `showcase-background.webp` — original neutral background used behind the live UI captures.
 
