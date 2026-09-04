@@ -125,6 +125,7 @@ Item {
     return JSON.stringify({
       version: buildIdentity,
       opened: opened,
+      layoutSettled: layoutSettled,
       mode: catalogMode
         ? "catalog"
         : (wallhavenMode

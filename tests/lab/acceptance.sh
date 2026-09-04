@@ -86,7 +86,7 @@ omarchy_host_test() {
   wait_for_guest_state "the favorite survives a real picker reopen" 20 ssh_session \
     "omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
        jq -e '.opened == true and .mode == \"wallpapers\" and \
-         .currentFavorite == true and .favoriteCount == 1'" || return 1
+         .layoutSettled == true and .currentFavorite == true and .favoriteCount == 1'" || return 1
 
   press ctrl-shift-d || return 1
   wait_for_guest_state "Ctrl+Shift+D enables favorites-only mode" 20 ssh_session \
