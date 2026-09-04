@@ -9,7 +9,7 @@ const read = (path) => readFile(join(process.cwd(), path), "utf8")
 test("keeps the published Theme Manager identity as the sole picker clone", async () => {
   const manifest = JSON.parse(await read("manifest.json"))
   assert.equal(manifest.id, "io.github.mtolhuys.theme-manager")
-  assert.equal(manifest.version, "0.2.0")
+  assert.equal(manifest.version, "0.4.0")
   assert.deepEqual(manifest.kinds, ["overlay"])
   assert.match(manifest.entryPoints.overlay, /^v[0-9]{4}\/ImagePicker\.qml$/)
   assert.equal(manifest.omarchy.clonedFrom, "omarchy.image-picker")
@@ -35,6 +35,9 @@ test("versions the complete QML and JavaScript runtime graph", async () => {
     "ThemeCatalogModel.js",
     "WallpaperBrowserController.qml",
     "WallpaperBrowserModel.js",
+    "WallpaperCommandModel.js",
+    "WallpaperPalette.qml",
+    "WallpaperPaletteModel.js",
     "WallhavenFilterBar.qml",
     "WallhavenFilterSheet.qml"
   ]) {

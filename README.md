@@ -4,7 +4,7 @@ Manage themes and browse Wallhaven wallpapers from Omarchy's native full-screen
 picker. Both experiences live in the existing Theme Manager plugin, so Omarchy
 still has exactly one replacement for `omarchy.image-picker`.
 
-![Browse themes and Wallhaven from Omarchy's native picker](preview.webp)
+![Omarchy Theme Manager — themes and wallpapers in one native picker](preview.webp)
 
 ## What it adds
 
@@ -21,6 +21,14 @@ still has exactly one replacement for `omarchy.image-picker`.
 
 ### Wallpapers
 
+- Save local wallpapers as persistent favorites with `Ctrl+D`, filter the
+  carousel to favorites with `Ctrl+Shift+D`, and watch saved images rearrange
+  into a stable front section.
+- Glide between expanding previews with monotonic, no-overshoot motion and a
+  visible star on every saved wallpaper.
+- Let each settled wallpaper generate a private live palette that recolors the
+  picker atmosphere, selected border, saved state, and controls without
+  changing the active desktop theme during browsing.
 - Browse SFW Wallhaven results inside the regular background carousel.
 - Type to search by Wallhaven keywords.
 - Filter by category, sorting, direction, minimum resolution, and Wallhaven
@@ -29,6 +37,8 @@ still has exactly one replacement for `omarchy.image-picker`.
   explicit **Load more** fallback.
 - Download the selected full-resolution image and apply it through Omarchy's
   existing background-selection round trip.
+
+![A saved local wallpaper with its live palette applied to the native picker](assets/wallpaper-command-center.webp)
 
 The Wallhaven action is shown only for background-picker requests. Theme-picker
 requests keep the theme catalog and uninstall controls; other image-picker
@@ -111,6 +121,8 @@ Open the regular background switcher with `Super+Ctrl+Space`.
 - Continue right to load more automatically, or choose **Load more** / press
   `Ctrl+N`.
 - Press `Enter` to download and apply the selection.
+- On local wallpapers, press `Ctrl+D` to save/remove a favorite and
+  `Ctrl+Shift+D` to toggle favorites-only mode.
 - Press `Escape` to clear the search, return to local wallpapers, or close.
 
 Inside the filter sheet, use Up/Down between rows, Left/Right between choices,
@@ -157,9 +169,10 @@ cd ~/Projects/omarchy/plugin-lab
 ```
 
 The scenario installs the candidate through Omarchy's real plugin lifecycle,
-verifies the versioned runtime, exercises the theme catalog and the contextual
-Wallhaven browse/search/filter/download path through real shortcuts, and proves
-disable, re-enable, and removal cleanup.
+verifies the versioned runtime, exercises persistent favorites and live palette
+sampling, covers the theme catalog and contextual Wallhaven
+browse/search/filter/download path through real shortcuts, and proves disable,
+re-enable, and removal cleanup.
 
 To verify an exact public candidate, point the same scenario at the repository:
 
@@ -178,7 +191,13 @@ omarchy plugin remove io.github.mtolhuys.theme-manager
 ```
 
 Removing the plugin restores the built-in picker. Installed themes and
-downloaded wallpapers are left intact.
+downloaded wallpapers are left intact. To remove its saved wallpaper favorites
+as well, delete `~/.config/omarchy/wallpaper-command-center.json`.
+
+## Credits
+
+Wallpaper favorites, live palette previews, and carousel motion began as a
+community contribution by [Fred Nix](https://github.com/nixfred).
 
 ## License
 

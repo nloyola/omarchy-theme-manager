@@ -9,11 +9,12 @@ import qs.Ui
 import "ImagePickerModel.js" as ImagePickerModel
 import "ThemeManagerModel.js" as ThemeManagerModel
 import "WallpaperBrowserModel.js" as WallpaperBrowserModel
+import "WallpaperCommandModel.js" as WallpaperCommandModel
 
 Item {
   id: root
 
-  readonly property string buildIdentity: "0.2.0"
+  readonly property string buildIdentity: "0.4.0"
   // Injected by omarchy-shell; defaults to the session OMARCHY_PATH.
   property string omarchyPath: Quickshell.env("OMARCHY_PATH")
   property var manifest: null
@@ -46,7 +47,16 @@ Item {
   property int localSelectedIndex: 0
   property string localFilterText: ""
   property bool wallpaperPickerRequest: false
+  readonly property string wallpaperCommandStatePath: Quickshell.env("HOME") + "/.config/omarchy/wallpaper-command-center.json"
+  readonly property string currentThemeRoot: stateHome + "/omarchy/current/theme/backgrounds"
+  readonly property string currentThemeNamePath: stateHome + "/omarchy/current/theme.name"
+  property string currentThemeName: ""
+  property var favoriteIds: []
+  property bool favoritesOnly: false
   readonly property bool wallpaperPickerActive: wallpaperPickerRequest
+  readonly property bool localWallpaperMode: wallpaperPickerActive && !wallhavenMode && !catalogMode
+  readonly property bool currentFavorite: localWallpaperMode
+    && WallpaperCommandModel.isFavorite(favoriteIds, currentPath(), wallpaperFavoriteContext())
   readonly property string wallhavenFilterSummary: WallpaperBrowserModel.filterSummary({
     categories: wallhaven.categories,
     sorting: wallhaven.sorting,
@@ -68,6 +78,22 @@ Item {
   property color scrim: Color.imagePicker.scrim
   property color selectedBorder: Color.imagePicker.selectedBorder
   property color unselectedBorder: Color.imagePicker.unselectedBorder
+  readonly property bool livePaletteReady: wallpaperPickerActive && wallpaperPalette.ready
+  readonly property color livePaletteBase: livePaletteReady
+    ? mixColor(Color.background, wallpaperPalette.base, 0.58)
+    : Color.background
+  readonly property color livePaletteAccent: livePaletteReady
+    ? mixColor(Color.accent, wallpaperPalette.accent, 0.78)
+    : Color.accent
+  readonly property color livePaletteSecondary: livePaletteReady
+    ? mixColor(Color.accent, wallpaperPalette.secondary, 0.7)
+    : Color.accent
+  readonly property color activeSelectedBorder: livePaletteReady
+    ? livePaletteAccent
+    : selectedBorder
+  readonly property color activeScrim: livePaletteReady
+    ? Util.alpha(livePaletteBase, 0.82)
+    : scrim
   property int expandedWidth: 768
   property int expandedHeight: 475
   property int sliceWidth: 108
@@ -86,10 +112,20 @@ Item {
     return buildIdentity
   }
 
+  function mixColor(from, to, amount) {
+    const t = Math.max(0, Math.min(1, Number(amount) || 0))
+    return Qt.rgba(
+      from.r + (to.r - from.r) * t,
+      from.g + (to.g - from.g) * t,
+      from.b + (to.b - from.b) * t,
+      from.a + (to.a - from.a) * t)
+  }
+
   function runtimeState() {
     return JSON.stringify({
       version: buildIdentity,
       opened: opened,
+      layoutSettled: layoutSettled,
       mode: catalogMode
         ? "catalog"
         : (wallhavenMode
@@ -99,7 +135,12 @@ Item {
                 : (wallpaperPickerActive ? "wallpapers" : "images"))),
       images: imageArray.length,
       query: wallhavenMode ? filterText : "",
-      filtersOpen: filterSheet.opened
+      filtersOpen: filterSheet.opened,
+      favoriteCount: favoriteIds.length,
+      currentFavorite: currentFavorite,
+      favoritesOnly: favoritesOnly,
+      paletteReady: wallpaperPalette.ready,
+      paletteSampledPath: wallpaperPalette.sampledPath
     })
   }
 
@@ -149,9 +190,64 @@ Item {
     return imageArray[selectedIndex].filePath
   }
 
+  function wallpaperFavoriteContext() {
+    return {
+      themeRoot: currentThemeRoot,
+      themeName: currentThemeName
+    }
+  }
+
+  function loadWallpaperCommandState(raw) {
+    const state = WallpaperCommandModel.parseState(raw, wallpaperFavoriteContext())
+    favoriteIds = state.favorites
+    if (localWallpaperMode && imageArray.length > 0) reorderWallpapers()
+  }
+
+  function saveWallpaperCommandState() {
+    wallpaperCommandState.setText(WallpaperCommandModel.serializeState(favoriteIds))
+  }
+
+  function reorderWallpapers() {
+    if (!localWallpaperMode || imageArray.length === 0) return
+    const selectedPath = currentPath()
+    imageArray = WallpaperCommandModel.prioritizeFavorites(
+      imageArray,
+      favoriteIds,
+      wallpaperFavoriteContext())
+    selectedIndex = ImagePickerModel.indexForSelectedImage(imageArray, selectedPath)
+  }
+
+  function toggleCurrentFavorite() {
+    if (!localWallpaperMode) return
+    const path = currentPath()
+    if (!path) return
+    favoriteIds = WallpaperCommandModel.toggleFavorite(
+      favoriteIds,
+      path,
+      wallpaperFavoriteContext())
+    if (favoritesOnly && favoriteIds.length === 0) favoritesOnly = false
+    reorderWallpapers()
+    saveWallpaperCommandState()
+    Qt.callLater(focusPicker)
+  }
+
+  function toggleFavoritesOnly() {
+    if (!localWallpaperMode || favoriteIds.length === 0) return
+    favoritesOnly = !favoritesOnly
+    if (!itemMatches(selectedIndex)) selectedIndex = firstMatchingIndex()
+    Qt.callLater(focusPicker)
+  }
+
   function currentItem() {
     if (imageArray.length === 0 || !itemMatches(selectedIndex)) return null
     return imageArray[selectedIndex]
+  }
+
+  function currentPaletteSource() {
+    if (!opened || !wallpaperPickerActive) return ""
+    const item = currentItem()
+    if (!item) return ""
+    return String(item.thumbnailPath || item.filePath || "")
   }
 
   function nameForPath(path) {
@@ -256,22 +352,35 @@ Item {
   function itemMatches(index) {
     if (wallhavenMode)
       return index >= 0 && index < imageArray.length
+    if (localWallpaperMode && favoritesOnly) {
+      if (index < 0 || index >= imageArray.length) return false
+      const item = imageArray[index]
+      if (!item || !WallpaperCommandModel.isFavorite(
+          favoriteIds,
+          item.filePath,
+          wallpaperFavoriteContext())) return false
+    }
     return ImagePickerModel.itemMatches(imageArray, index, filterText)
   }
 
   function firstMatchingIndex() {
     if (wallhavenMode) return imageArray.length > 0 ? 0 : -1
-    return ImagePickerModel.firstMatchingIndex(imageArray, filterText)
+    for (let index = 0; index < imageArray.length; index++)
+      if (itemMatches(index)) return index
+    return -1
   }
 
   function filteredPosition(index) {
     if (wallhavenMode) return index
-    return ImagePickerModel.filteredPosition(imageArray, index, filterText)
+    let position = 0
+    for (let candidate = 0; candidate < index; candidate++)
+      if (itemMatches(candidate)) position += 1
+    return position
   }
 
   function selectedFilteredPosition() {
     if (wallhavenMode) return selectedIndex
-    return ImagePickerModel.selectedFilteredPosition(imageArray, selectedIndex, filterText)
+    return itemMatches(selectedIndex) ? filteredPosition(selectedIndex) : 0
   }
 
   function select(index, immediate) {
@@ -308,7 +417,7 @@ Item {
 
     filterText = nextFilterText
     if (!itemMatches(selectedIndex)) {
-      const first = ImagePickerModel.nextSelectedIndexForFilter(imageArray, selectedIndex, filterText)
+      const first = firstMatchingIndex()
       if (first >= 0) selectedIndex = first
     }
   }
@@ -479,7 +588,12 @@ Item {
   }
 
   function loadRows(rows, reveal) {
-    const newImages = ImagePickerModel.loadRows(rows)
+    let newImages = ImagePickerModel.loadRows(rows)
+    if (wallpaperPickerActive)
+      newImages = WallpaperCommandModel.prioritizeFavorites(
+        newImages,
+        favoriteIds,
+        wallpaperFavoriteContext())
 
     root.loadedImageRows = rows
     root.selectedIndex = root.indexForSelectedImage(newImages)
@@ -513,6 +627,7 @@ Item {
     showLabels = nextShowLabels === true || nextShowLabels === "true"
     filterable = nextFilterable === true || nextFilterable === "true"
     filterText = ""
+    favoritesOnly = false
     layoutSettled = false
 
     if (imageRows && imageRows === loadedImageRows && imageArray.length > 0) {
@@ -592,6 +707,36 @@ Item {
       if (serial > 0 && serial === root.requestSerial)
         root.startImageScan(serial, dirs)
     }
+  }
+
+  FileView {
+    id: wallpaperCommandState
+    path: root.wallpaperCommandStatePath
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadWallpaperCommandState(text())
+    onLoadFailed: root.loadWallpaperCommandState("")
+  }
+
+  FileView {
+    id: currentThemeNameFile
+    path: root.currentThemeNamePath
+    watchChanges: true
+    printErrors: false
+    onLoaded: {
+      root.currentThemeName = String(text() || "").trim().slice(0, 255)
+      if (root.localWallpaperMode && root.imageArray.length > 0)
+        root.reorderWallpapers()
+    }
+    onLoadFailed: root.currentThemeName = ""
+    onFileChanged: reload()
+  }
+
+  WallpaperPalette {
+    id: wallpaperPalette
+    sourcePath: root.currentPaletteSource()
+    fallbackBase: Color.background
+    fallbackAccent: Color.accent
   }
 
   // Lifecycle hooks invoked by omarchy-shell summon/hide. The shell host owns
@@ -704,7 +849,20 @@ Item {
     Rectangle {
       anchors.fill: parent
       visible: root.opened && root.imagesLoaded
-      color: root.scrim
+      color: root.activeScrim
+      Behavior on color { ColorAnimation { duration: 360; easing.type: Easing.OutCubic } }
+    }
+
+    Rectangle {
+      anchors.fill: parent
+      visible: root.opened && root.imagesLoaded && root.livePaletteReady
+      opacity: 0.42
+      gradient: Gradient {
+        orientation: Gradient.Vertical
+        GradientStop { position: 0; color: Util.alpha(root.livePaletteSecondary, 0.28) }
+        GradientStop { position: 0.48; color: "transparent" }
+        GradientStop { position: 1; color: Util.alpha(root.livePaletteAccent, 0.24) }
+      }
     }
 
     MouseArea {
@@ -758,6 +916,17 @@ Item {
                    && root.wallhavenMode) {
           root.openWallhavenFilters()
           event.accepted = true
+        } else if (event.key === Qt.Key_D
+                   && (event.modifiers & Qt.ControlModifier) !== 0
+                   && (event.modifiers & Qt.ShiftModifier) !== 0
+                   && root.localWallpaperMode) {
+          root.toggleFavoritesOnly()
+          event.accepted = true
+        } else if (event.key === Qt.Key_D
+                   && (event.modifiers & Qt.ControlModifier) !== 0
+                   && root.localWallpaperMode) {
+          root.toggleCurrentFavorite()
+          event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
           if (root.filterText) {
             root.updateFilter("")
@@ -802,6 +971,43 @@ Item {
 
       MouseArea { anchors.fill: parent; onClicked: {} }
 
+      Rectangle {
+        visible: root.livePaletteReady
+        anchors.centerIn: parent
+        anchors.horizontalCenterOffset: -root.expandedWidth * 0.2
+        width: root.expandedWidth * 0.82
+        height: root.expandedHeight * 0.82
+        radius: width / 2
+        color: Util.alpha(root.livePaletteAccent, 0.28)
+        opacity: 0.74
+        layer.enabled: true
+        layer.effect: MultiEffect {
+          blurEnabled: true
+          blur: 1
+          blurMax: 96
+          autoPaddingEnabled: true
+        }
+      }
+
+      Rectangle {
+        visible: root.livePaletteReady
+        anchors.centerIn: parent
+        anchors.horizontalCenterOffset: root.expandedWidth * 0.24
+        anchors.verticalCenterOffset: root.expandedHeight * 0.12
+        width: root.expandedWidth * 0.7
+        height: root.expandedHeight * 0.7
+        radius: width / 2
+        color: Util.alpha(root.livePaletteSecondary, 0.24)
+        opacity: 0.68
+        layer.enabled: true
+        layer.effect: MultiEffect {
+          blurEnabled: true
+          blur: 1
+          blurMax: 96
+          autoPaddingEnabled: true
+        }
+      }
+
       Item {
         id: carousel
         anchors.top: parent.top
@@ -841,6 +1047,23 @@ Item {
             height: selected ? root.expandedHeight : root.sliceHeight
             y: selected ? 0 : (root.expandedHeight - root.sliceHeight) / 2
             z: selected ? 100 : 50 - Math.min(Math.abs(relativeIndex), 40)
+
+            Behavior on x {
+              enabled: root.opened && root.layoutSettled
+              NumberAnimation { duration: 320; easing.type: Easing.OutCubic }
+            }
+            Behavior on y {
+              enabled: root.opened && root.layoutSettled
+              NumberAnimation { duration: 260; easing.type: Easing.OutCubic }
+            }
+            Behavior on width {
+              enabled: root.opened && root.layoutSettled
+              NumberAnimation { duration: 320; easing.type: Easing.OutCubic }
+            }
+            Behavior on height {
+              enabled: root.opened && root.layoutSettled
+              NumberAnimation { duration: 320; easing.type: Easing.OutCubic }
+            }
 
             readonly property real skAbs: Math.abs(root.skewOffset)
             readonly property real topLeft: root.skewOffset >= 0 ? skAbs : 0
@@ -917,6 +1140,65 @@ Item {
                 anchors.fill: parent
                 color: Util.alpha(root.dimColor, item.selected ? 0 : 0.42)
               }
+
+              Text {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: Style.space(12)
+                visible: root.localWallpaperMode
+                  && WallpaperCommandModel.isFavorite(
+                    root.favoriteIds,
+                    item.filePath,
+                    root.wallpaperFavoriteContext())
+                text: "★"
+                color: root.livePaletteAccent
+                style: Text.Outline
+                styleColor: Util.alpha(root.dimColor, 0.82)
+                font.pixelSize: item.selected ? Style.font.display : Style.font.title
+                font.weight: Font.Bold
+                opacity: item.selected ? 1.0 : 0.86
+                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+              }
+
+              Rectangle {
+                visible: item.selected && root.livePaletteReady
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                anchors.margins: Style.space(14)
+                width: paletteBadgeRow.implicitWidth + Style.space(18)
+                height: paletteBadgeRow.implicitHeight + Style.space(12)
+                radius: height / 2
+                color: Util.alpha(root.livePaletteBase, 0.86)
+                border.width: 1
+                border.color: Util.alpha(root.livePaletteAccent, 0.8)
+
+                Row {
+                  id: paletteBadgeRow
+                  anchors.centerIn: parent
+                  spacing: Style.space(6)
+
+                  Repeater {
+                    model: [root.livePaletteAccent, root.livePaletteSecondary, root.livePaletteBase]
+                    Rectangle {
+                      required property color modelData
+                      width: Style.space(9)
+                      height: width
+                      radius: width / 2
+                      color: modelData
+                      border.width: 1
+                      border.color: Util.alpha(root.foreground, 0.42)
+                    }
+                  }
+
+                  Text {
+                    text: "LIVE PALETTE"
+                    color: root.foreground
+                    font.pixelSize: Style.font.caption
+                    font.weight: Font.DemiBold
+                    textFormat: Text.PlainText
+                  }
+                }
+              }
             }
 
             Shape {
@@ -925,7 +1207,7 @@ Item {
               preferredRendererType: Shape.CurveRenderer
               ShapePath {
                 fillColor: "transparent"
-                strokeColor: item.selected ? root.selectedBorder : root.unselectedBorder
+                strokeColor: item.selected ? root.activeSelectedBorder : root.unselectedBorder
                 strokeWidth: item.selected ? 3 : 1
                 startX: item.topLeft; startY: 0
                 PathLine { x: item.topRight; y: 0 }
@@ -959,6 +1241,7 @@ Item {
         width: root.expandedWidth
         height: Math.max(
           selectedLabel.implicitHeight,
+          favoriteControls.implicitHeight,
           wallhavenBrowseButton.implicitHeight,
           wallhavenBackButton.implicitHeight,
           loadMoreButton.implicitHeight,
@@ -968,6 +1251,7 @@ Item {
           catalogInstallButton.implicitHeight
         )
         readonly property real sideWidth: Math.max(
+          favoriteControls.visible ? favoriteControls.implicitWidth : 0,
           wallhavenBrowseButton.visible && selectedLabel.visible ? wallhavenBrowseButton.implicitWidth : 0,
           wallhavenBackButton.visible ? wallhavenBackButton.implicitWidth : 0,
           loadMoreButton.visible ? loadMoreButton.implicitWidth : 0,
@@ -977,9 +1261,40 @@ Item {
           catalogInstallButton.visible ? catalogInstallButton.implicitWidth : 0
         )
 
+        Row {
+          id: favoriteControls
+          visible: root.localWallpaperMode
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(8)
+
+          Button {
+            text: root.currentFavorite ? "★ Saved" : "☆ Save"
+            tooltipText: "Toggle favorite (Ctrl+D)"
+            foreground: root.currentFavorite ? root.livePaletteAccent : root.foreground
+            accent: root.livePaletteAccent
+            bordered: true
+            horizontalPadding: Style.space(10)
+            verticalPadding: Style.space(7)
+            onClicked: root.toggleCurrentFavorite()
+          }
+
+          Button {
+            enabled: root.favoriteIds.length > 0
+            text: root.favoritesOnly ? "★ Favorites" : "All"
+            tooltipText: "Show only favorites (Ctrl+Shift+D)"
+            foreground: root.favoritesOnly ? root.livePaletteAccent : root.foreground
+            accent: root.livePaletteAccent
+            bordered: true
+            horizontalPadding: Style.space(10)
+            verticalPadding: Style.space(7)
+            onClicked: root.toggleFavoritesOnly()
+          }
+        }
+
         Text {
           id: selectedLabel
-          visible: root.showLabels || root.wallhavenMode
+          visible: root.showLabels || root.wallhavenMode || root.wallpaperPickerActive
           anchors.centerIn: parent
           width: footer.sideWidth > 0
             ? parent.width - 2 * (footer.sideWidth + Style.space(16))
@@ -999,11 +1314,11 @@ Item {
           id: wallhavenBrowseButton
           visible: root.wallpaperPickerActive && !root.wallhavenMode
           anchors.verticalCenter: parent.verticalCenter
-          x: root.showLabels ? parent.width - width : (parent.width - width) / 2
+          x: selectedLabel.visible ? parent.width - width : (parent.width - width) / 2
           text: "Browse Wallhaven"
           tooltipText: "Browse SFW Wallhaven wallpapers through Aether (Ctrl+B)"
           foreground: root.foreground
-          accent: Color.accent
+          accent: root.livePaletteAccent
           bordered: true
           horizontalPadding: Style.space(12)
           verticalPadding: Style.space(7)
