@@ -70,6 +70,42 @@ const displayStatus = ({ installed, stockConflict }) => {
   return "Install"
 }
 
+// A pre-flight verdict from `qs-theme check`, for one repository. The catalog
+// can say a package exists but not whether qs-theme can read it - an older
+// package ships a file per application and no palette at all - so the browser
+// asks when the cursor lands on a tile.
+const OK = "ok"
+const UNUSABLE = "unusable"
+const UNVERIFIED = "unverified"
+
+// What the footer says about the entry the cursor is on. This is layered onto
+// the entry rather than built into the rows because the grid is handed its
+// rows once, when the catalog opens, and a verdict arrives long afterwards -
+// rebuilding the rows behind the grid would not reach it, and rebuilding the
+// grid would move the tiles about under the cursor.
+//
+// Inventory outranks a verdict, so a package already installed is never held
+// at "Checking". An unverified package is still offered: an unknown forge or
+// a dropped connection says nothing about the package, and install is still
+// the real guard.
+const entryState = (entry, verdict) => {
+  const row = objectValue(entry)
+  if (!row.repositoryUrl) return { status: "Install", canInstall: false }
+  if (row.installed) return { status: "Installed", canInstall: false }
+  if (row.stockConflict) return { status: "Conflicts with stock theme", canInstall: false }
+
+  switch (stringValue(verdict)) {
+    case OK:
+      return { status: "Install", canInstall: true }
+    case UNUSABLE:
+      return { status: "No palette in this package", canInstall: false }
+    case UNVERIFIED:
+      return { status: "Install (unchecked)", canInstall: true }
+    default:
+      return { status: "Checking\u2026", canInstall: false }
+  }
+}
+
 const catalogRows = (payload, inventory = {}) => {
   const data = objectValue(payload)
   const installedThemes = objectValue(inventory.installedThemes)
@@ -165,6 +201,10 @@ if (typeof module !== "undefined") {
     safePreviewUrl,
     parsedArray,
     catalogRows,
+    entryState,
+    OK,
+    UNUSABLE,
+    UNVERIFIED,
     installConfirmationMessage
   }
 }

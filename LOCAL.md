@@ -66,6 +66,37 @@ that resolves, records the URL to track it by, and copies its `backgrounds/`
 into the wallpaper library. `qs-theme remove` refuses the live theme and the
 fallback. So the guards at both ends agree rather than one trusting the other.
 
+**The browser asks before it offers.** The catalog can say a package exists; it
+cannot say whether `qs-theme` can read it. Plenty of older packages ship a file
+per application - `alacritty.toml`, `waybar.css`, `hyprland.conf` - and no
+palette at all, and the first sign of that used to be an install that failed
+after cloning the whole thing. So the cursor landing on a tile runs `qs-theme
+check <url>`, which fetches only that repository's `colors.toml` off `HEAD` and
+puts it through the same `resolve` install vets with, writing nothing:
+
+| exit | the button |
+| --- | --- |
+| 0 | `Install` |
+| 4 | `No palette in this package`, disabled |
+| anything else | `Install (unchecked)`, still offered |
+
+The last row is why there are three states rather than two. An unknown forge or
+a dropped connection is not a verdict about the package - install itself is
+still the real guard - so a check that learned nothing may not be allowed to
+hide a theme that would install fine.
+
+One check runs at a time, and a single queued slot holds only the tile the
+cursor is on now, so arrowing across the grid does not line up a fetch for
+every tile it passed over. Verdicts are remembered for as long as the picker is
+open.
+
+The verdict is applied to the selected entry, in `entryState`, rather than
+built into the rows. `enterCatalog` hands the grid its rows once and the answer
+arrives long after that, so rebuilding the rows behind the grid would never
+reach it - and rebuilding the grid would move the tiles about under the cursor
+as each answer landed. Only the footer ever shows a verdict, so only the footer
+needs to know one.
+
 Installing and removing write real files into the theme directory, which is a
 git repository of its own ([qs-themes](https://github.com/nloyola/qs-themes)) -
 so a theme added here shows up as an uncommitted change there, waiting to be

@@ -159,3 +159,57 @@ test("sorts installable themes ahead of blocked catalog entries", () => {
   assert.equal(rows[0].installSlug, "fresh")
   assert.equal(rows[1].installSlug, "blocked")
 })
+
+test("holds an entry back until a pre-flight verdict says the package has a palette", () => {
+  const [row] = model.catalogRows({
+    themes: [{ name: "Ayaka", repositoryUrl: "https://github.com/example/omarchy-ayaka-theme" }]
+  })
+
+  assert.deepEqual(model.entryState(row, model.OK), { status: "Install", canInstall: true })
+  assert.deepEqual(model.entryState(row, model.UNUSABLE), {
+    status: "No palette in this package",
+    canInstall: false
+  })
+
+  // Not a verdict about the package - an unknown forge, or a dropped
+  // connection. Install is still the real guard, so it stays on offer.
+  assert.deepEqual(model.entryState(row, model.UNVERIFIED), {
+    status: "Install (unchecked)",
+    canInstall: true
+  })
+
+  // Nothing is offered before the answer comes back.
+  assert.deepEqual(model.entryState(row, ""), { status: "Checking…", canInstall: false })
+  assert.deepEqual(model.entryState(row, "nonsense"), {
+    status: "Checking…",
+    canInstall: false
+  })
+  assert.deepEqual(model.entryState(null, model.OK), { status: "Install", canInstall: false })
+})
+
+test("lets inventory outrank a pre-flight verdict", () => {
+  const rows = model.catalogRows(
+    {
+      themes: [
+        { name: "Installed", repositoryUrl: "https://github.com/example/omarchy-installed-theme" },
+        { name: "Miasma", repositoryUrl: "https://github.com/example/omarchy-miasma-theme" }
+      ]
+    },
+    {
+      installedThemes: { installed: true },
+      stockThemes: { miasma: true }
+    }
+  )
+  const bySlug = Object.fromEntries(rows.map((row) => [row.installSlug, row]))
+
+  // Both of these are known without a network, so neither is ever held at
+  // "Checking" waiting for one.
+  assert.deepEqual(model.entryState(bySlug.installed, ""), {
+    status: "Installed",
+    canInstall: false
+  })
+  assert.deepEqual(model.entryState(bySlug.miasma, model.OK), {
+    status: "Conflicts with stock theme",
+    canInstall: false
+  })
+})

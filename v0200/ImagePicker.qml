@@ -1530,6 +1530,15 @@ Item {
             if (!item) return ""
             if (item.installed) return "This repository is already installed"
             if (item.stockConflict) return "This repository would overwrite a stock theme slug"
+            // LOCAL: what the pre-flight found. A package with no colors.toml
+            // at its root is one qs-theme cannot read at all, and saying so
+            // here beats a clone that fails.
+            if (themeCatalog.selectedVerdict === "unusable")
+              return "qs-theme found no palette at the root of this repository"
+            if (themeCatalog.selectedVerdict === "unverified")
+              return "This package could not be checked - installing will say if it cannot be read"
+            if (themeCatalog.selectedVerdict === "")
+              return "Checking whether qs-theme can read this package"
             if (item.warnings && item.warnings.length > 0)
               return "Review " + item.warnings.length + " catalog notes before installing"
             return "Clone and immediately apply this theme (Enter)"
