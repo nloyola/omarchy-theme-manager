@@ -160,11 +160,35 @@ case $mode in
         ;;
     wallpapers)
         wallpaper=${QS_WALLPAPER_BIN:-$HOME/.local/bin/qs-wallpaper}
-        output=${QS_WALLPAPER_OUTPUT:-}
-        if [[ -z $output ]] && command -v hyprctl >/dev/null 2>&1; then
-            output=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name') || output=""
+
+        # WHICH MONITOR. Wallpapers are per-monitor here, so a pick has to name
+        # one. QS_WALLPAPER_OUTPUT is what the caller knew at open time - the
+        # bar's display chip stamps the monitor its popup belongs to, because
+        # by the time a pick lands focus may well have moved. Only trust it
+        # while it still names an enabled output; qs-wallpaper's own list is
+        # what decides which monitors count, under Hyprland and i3 alike.
+        outputs=$("$wallpaper" list | jq -r '.outputs[].name') || exit 1
+        known() { printf '%s\n' "$outputs" | grep -Fxq -- "$1"; }
+
+        output=""
+        if [[ -n ${QS_WALLPAPER_OUTPUT:-} ]] && known "$QS_WALLPAPER_OUTPUT"; then
+            output=$QS_WALLPAPER_OUTPUT
         fi
-        [[ -n $output ]] || { echo "no output to set the wallpaper on" >&2; exit 1; }
+        if [[ -z $output ]] && command -v hyprctl >/dev/null 2>&1; then
+            focused=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name') || focused=""
+            # An `a && b && c` statement here would be the script's exit status
+            # when no monitor is focused, and `set -e` would take that as a
+            # failure and quit before the fallback below ever ran.
+            if [[ -n $focused ]] && known "$focused"; then
+                output=$focused
+            fi
+        fi
+        if [[ -z $output ]]; then
+            output=$(printf '%s\n' "$outputs" | head -1)
+            [[ -n $output ]] || { echo "no output to set the wallpaper on" >&2; exit 1; }
+            echo "no monitor named, falling back to $output" >&2
+        fi
+
         exec "$wallpaper" set "$output" "$choice"
         ;;
 esac
