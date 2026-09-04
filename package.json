@@ -1,6 +1,6 @@
 {
   "name": "omarchy-theme-manager",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Quality tooling for the Omarchy Theme Manager plugin.",
   "license": "MIT",
@@ -10,7 +10,7 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "lint:js": "eslint .",
-    "lint:qml": "/usr/lib/qt6/bin/qmllint -i /usr/share/omarchy/shell/Commons/qmldir -i /usr/share/omarchy/shell/Ui/qmldir v0200/ImagePicker.qml v0200/ThemeManagerController.qml v0200/ThemeCatalogController.qml v0200/WallpaperBrowserController.qml v0200/WallhavenFilterBar.qml v0200/WallhavenFilterSheet.qml v0200/ImagePickerModel.js v0200/ThemeManagerModel.js v0200/ThemeCatalogModel.js v0200/WallpaperBrowserModel.js v0200/WallpaperCommandModel.js",
+    "lint:qml": "/usr/lib/qt6/bin/qmllint -i /usr/share/omarchy/shell/Commons/qmldir -i /usr/share/omarchy/shell/Ui/qmldir v0200/ImagePicker.qml v0200/ThemeManagerController.qml v0200/ThemeCatalogController.qml v0200/WallpaperBrowserController.qml v0200/WallhavenFilterBar.qml v0200/WallhavenFilterSheet.qml v0200/ImagePickerModel.js v0200/ThemeManagerModel.js v0200/ThemeCatalogModel.js v0200/WallpaperBrowserModel.js v0200/WallpaperCommandModel.js v0200/WallpaperPalette.qml v0200/WallpaperPaletteModel.js",
     "lint:shell": "shellcheck list.sh catalog.sh theme-inventory.sh tests/lab/acceptance.sh && shfmt -d -i 2 -ci -bn list.sh catalog.sh theme-inventory.sh tests/lab/acceptance.sh",
     "format:check": "prettier --check 'v*/**/*.js' 'tests/*.js' '*.mjs' '*.json' '*.md' 'assets/*.md'",
     "format": "prettier --write 'v*/**/*.js' 'tests/*.js' '*.mjs' '*.json' '*.md' 'assets/*.md' && shfmt -w -i 2 -ci -bn list.sh catalog.sh theme-inventory.sh tests/lab/acceptance.sh",

@@ -14,7 +14,7 @@ import "WallpaperCommandModel.js" as WallpaperCommandModel
 Item {
   id: root
 
-  readonly property string buildIdentity: "0.3.0"
+  readonly property string buildIdentity: "0.4.0"
   // Injected by omarchy-shell; defaults to the session OMARCHY_PATH.
   property string omarchyPath: Quickshell.env("OMARCHY_PATH")
   property var manifest: null
@@ -75,6 +75,22 @@ Item {
   property color scrim: Color.imagePicker.scrim
   property color selectedBorder: Color.imagePicker.selectedBorder
   property color unselectedBorder: Color.imagePicker.unselectedBorder
+  readonly property bool livePaletteReady: wallpaperPickerActive && wallpaperPalette.ready
+  readonly property color livePaletteBase: livePaletteReady
+    ? mixColor(Color.background, wallpaperPalette.base, 0.58)
+    : Color.background
+  readonly property color livePaletteAccent: livePaletteReady
+    ? mixColor(Color.accent, wallpaperPalette.accent, 0.78)
+    : Color.accent
+  readonly property color livePaletteSecondary: livePaletteReady
+    ? mixColor(Color.accent, wallpaperPalette.secondary, 0.7)
+    : Color.accent
+  readonly property color activeSelectedBorder: livePaletteReady
+    ? livePaletteAccent
+    : selectedBorder
+  readonly property color activeScrim: livePaletteReady
+    ? Util.alpha(livePaletteBase, 0.82)
+    : scrim
   property int expandedWidth: 768
   property int expandedHeight: 475
   property int sliceWidth: 108
@@ -91,6 +107,15 @@ Item {
 
   function runtimeIdentity() {
     return buildIdentity
+  }
+
+  function mixColor(from, to, amount) {
+    const t = Math.max(0, Math.min(1, Number(amount) || 0))
+    return Qt.rgba(
+      from.r + (to.r - from.r) * t,
+      from.g + (to.g - from.g) * t,
+      from.b + (to.b - from.b) * t,
+      from.a + (to.a - from.a) * t)
   }
 
   function runtimeState() {
@@ -194,6 +219,13 @@ Item {
   function currentItem() {
     if (imageArray.length === 0 || !itemMatches(selectedIndex)) return null
     return imageArray[selectedIndex]
+  }
+
+  function currentPaletteSource() {
+    if (!opened || !wallpaperPickerActive) return ""
+    const item = currentItem()
+    if (!item) return ""
+    return String(item.thumbnailPath || item.filePath || "")
   }
 
   function nameForPath(path) {
@@ -657,6 +689,13 @@ Item {
     onLoadFailed: root.loadWallpaperCommandState("")
   }
 
+  WallpaperPalette {
+    id: wallpaperPalette
+    sourcePath: root.currentPaletteSource()
+    fallbackBase: Color.background
+    fallbackAccent: Color.accent
+  }
+
   // Lifecycle hooks invoked by omarchy-shell summon/hide. The shell host owns
   // the stable image-selector IPC target and forwards positional calls here.
   function open(payload) {
@@ -767,7 +806,20 @@ Item {
     Rectangle {
       anchors.fill: parent
       visible: root.opened && root.imagesLoaded
-      color: root.scrim
+      color: root.activeScrim
+      Behavior on color { ColorAnimation { duration: 360; easing.type: Easing.OutCubic } }
+    }
+
+    Rectangle {
+      anchors.fill: parent
+      visible: root.opened && root.imagesLoaded && root.livePaletteReady
+      opacity: 0.42
+      gradient: Gradient {
+        orientation: Gradient.Vertical
+        GradientStop { position: 0; color: Util.alpha(root.livePaletteSecondary, 0.28) }
+        GradientStop { position: 0.48; color: "transparent" }
+        GradientStop { position: 1; color: Util.alpha(root.livePaletteAccent, 0.24) }
+      }
     }
 
     MouseArea {
@@ -875,6 +927,43 @@ Item {
       anchors.centerIn: parent
 
       MouseArea { anchors.fill: parent; onClicked: {} }
+
+      Rectangle {
+        visible: root.livePaletteReady
+        anchors.centerIn: parent
+        anchors.horizontalCenterOffset: -root.expandedWidth * 0.2
+        width: root.expandedWidth * 0.82
+        height: root.expandedHeight * 0.82
+        radius: width / 2
+        color: Util.alpha(root.livePaletteAccent, 0.28)
+        opacity: 0.74
+        layer.enabled: true
+        layer.effect: MultiEffect {
+          blurEnabled: true
+          blur: 1
+          blurMax: 96
+          autoPaddingEnabled: true
+        }
+      }
+
+      Rectangle {
+        visible: root.livePaletteReady
+        anchors.centerIn: parent
+        anchors.horizontalCenterOffset: root.expandedWidth * 0.24
+        anchors.verticalCenterOffset: root.expandedHeight * 0.12
+        width: root.expandedWidth * 0.7
+        height: root.expandedHeight * 0.7
+        radius: width / 2
+        color: Util.alpha(root.livePaletteSecondary, 0.24)
+        opacity: 0.68
+        layer.enabled: true
+        layer.effect: MultiEffect {
+          blurEnabled: true
+          blur: 1
+          blurMax: 96
+          autoPaddingEnabled: true
+        }
+      }
 
       Item {
         id: carousel
@@ -1016,13 +1105,53 @@ Item {
                 visible: root.localWallpaperMode
                   && WallpaperCommandModel.isFavorite(root.favoritePaths, item.filePath)
                 text: "★"
-                color: Color.accent
+                color: root.livePaletteAccent
                 style: Text.Outline
                 styleColor: Util.alpha(root.dimColor, 0.82)
                 font.pixelSize: item.selected ? Style.font.display : Style.font.title
                 font.weight: Font.Bold
                 opacity: item.selected ? 1.0 : 0.86
                 Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+              }
+
+              Rectangle {
+                visible: item.selected && root.livePaletteReady
+                anchors.left: parent.left
+                anchors.bottom: parent.bottom
+                anchors.margins: Style.space(14)
+                width: paletteBadgeRow.implicitWidth + Style.space(18)
+                height: paletteBadgeRow.implicitHeight + Style.space(12)
+                radius: height / 2
+                color: Util.alpha(root.livePaletteBase, 0.86)
+                border.width: 1
+                border.color: Util.alpha(root.livePaletteAccent, 0.8)
+
+                Row {
+                  id: paletteBadgeRow
+                  anchors.centerIn: parent
+                  spacing: Style.space(6)
+
+                  Repeater {
+                    model: [root.livePaletteAccent, root.livePaletteSecondary, root.livePaletteBase]
+                    Rectangle {
+                      required property color modelData
+                      width: Style.space(9)
+                      height: width
+                      radius: width / 2
+                      color: modelData
+                      border.width: 1
+                      border.color: Util.alpha(root.foreground, 0.42)
+                    }
+                  }
+
+                  Text {
+                    text: "LIVE PALETTE"
+                    color: root.foreground
+                    font.pixelSize: Style.font.caption
+                    font.weight: Font.DemiBold
+                    textFormat: Text.PlainText
+                  }
+                }
               }
             }
 
@@ -1032,7 +1161,7 @@ Item {
               preferredRendererType: Shape.CurveRenderer
               ShapePath {
                 fillColor: "transparent"
-                strokeColor: item.selected ? root.selectedBorder : root.unselectedBorder
+                strokeColor: item.selected ? root.activeSelectedBorder : root.unselectedBorder
                 strokeWidth: item.selected ? 3 : 1
                 startX: item.topLeft; startY: 0
                 PathLine { x: item.topRight; y: 0 }
@@ -1096,8 +1225,8 @@ Item {
           Button {
             text: root.currentFavorite ? "★ Saved" : "☆ Save"
             tooltipText: "Toggle favorite (Ctrl+D)"
-            foreground: root.currentFavorite ? Color.accent : root.foreground
-            accent: Color.accent
+            foreground: root.currentFavorite ? root.livePaletteAccent : root.foreground
+            accent: root.livePaletteAccent
             bordered: true
             horizontalPadding: Style.space(10)
             verticalPadding: Style.space(7)
@@ -1108,8 +1237,8 @@ Item {
             enabled: root.favoritePaths.length > 0
             text: root.favoritesOnly ? "★ Favorites" : "All"
             tooltipText: "Show only favorites (Ctrl+Shift+D)"
-            foreground: root.favoritesOnly ? Color.accent : root.foreground
-            accent: Color.accent
+            foreground: root.favoritesOnly ? root.livePaletteAccent : root.foreground
+            accent: root.livePaletteAccent
             bordered: true
             horizontalPadding: Style.space(10)
             verticalPadding: Style.space(7)
@@ -1119,7 +1248,7 @@ Item {
 
         Text {
           id: selectedLabel
-          visible: root.showLabels || root.wallhavenMode
+          visible: root.showLabels || root.wallhavenMode || root.wallpaperPickerActive
           anchors.centerIn: parent
           width: footer.sideWidth > 0
             ? parent.width - 2 * (footer.sideWidth + Style.space(16))
@@ -1139,11 +1268,11 @@ Item {
           id: wallhavenBrowseButton
           visible: root.wallpaperPickerActive && !root.wallhavenMode
           anchors.verticalCenter: parent.verticalCenter
-          x: root.showLabels ? parent.width - width : (parent.width - width) / 2
+          x: selectedLabel.visible ? parent.width - width : (parent.width - width) / 2
           text: "Browse Wallhaven"
           tooltipText: "Browse SFW Wallhaven wallpapers through Aether (Ctrl+B)"
           foreground: root.foreground
-          accent: Color.accent
+          accent: root.livePaletteAccent
           bordered: true
           horizontalPadding: Style.space(12)
           verticalPadding: Style.space(7)

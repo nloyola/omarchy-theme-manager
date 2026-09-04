@@ -26,6 +26,9 @@ still has exactly one replacement for `omarchy.image-picker`.
   into a stable front section.
 - Glide between expanding previews with monotonic, no-overshoot motion and a
   visible star on every saved wallpaper.
+- Let each settled wallpaper generate a private live palette that recolors the
+  picker atmosphere, selected border, saved state, and controls without
+  changing the active desktop theme during browsing.
 - Browse SFW Wallhaven results inside the regular background carousel.
 - Type to search by Wallhaven keywords.
 - Filter by category, sorting, direction, minimum resolution, and Wallhaven
