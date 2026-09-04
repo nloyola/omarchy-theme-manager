@@ -167,9 +167,10 @@ cd ~/Projects/omarchy/plugin-lab
 ```
 
 The scenario installs the candidate through Omarchy's real plugin lifecycle,
-verifies the versioned runtime, exercises the theme catalog and the contextual
-Wallhaven browse/search/filter/download path through real shortcuts, and proves
-disable, re-enable, and removal cleanup.
+verifies the versioned runtime, exercises persistent favorites and live palette
+sampling, covers the theme catalog and contextual Wallhaven
+browse/search/filter/download path through real shortcuts, and proves disable,
+re-enable, and removal cleanup.
 
 To verify an exact public candidate, point the same scenario at the repository:
 
@@ -188,7 +189,13 @@ omarchy plugin remove io.github.mtolhuys.theme-manager
 ```
 
 Removing the plugin restores the built-in picker. Installed themes and
-downloaded wallpapers are left intact.
+downloaded wallpapers are left intact. To remove its saved wallpaper favorites
+as well, delete `~/.config/omarchy/wallpaper-command-center.json`.
+
+## Credits
+
+Wallpaper favorites, live palette previews, and carousel motion began as a
+community contribution by [Fred Nix](https://github.com/nixfred).
 
 ## License
 

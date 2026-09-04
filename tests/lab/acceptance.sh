@@ -31,14 +31,14 @@ omarchy_host_test() {
     aether --help | grep -q -- '--wallhaven-download'" || return 1
 
   ssh_session "omarchy-plugin-add $install_source_q --enable --yes" || return 1
-  wait_for_guest_state "Theme Manager 0.2.0 is installed and loaded" 25 ssh_session \
+  wait_for_guest_state "Theme Manager 0.4.0 is installed and loaded" 25 ssh_session \
     "omarchy-plugin-list --json | jq -e \
       'any(.[]; .id == \"io.github.mtolhuys.theme-manager\" and .enabled == true)' && \
-     jq -e '.version == \"0.2.0\" and \
+     jq -e '.version == \"0.4.0\" and \
        .entryPoints.overlay == \"v0200/ImagePicker.qml\" and \
        .omarchy.clonedFrom == \"omarchy.image-picker\"' \
        \"\$HOME/.config/omarchy/plugins/io.github.mtolhuys.theme-manager/manifest.json\" && \
-     [[ \$(omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeIdentity '') == \"0.2.0\" ]]" || return 1
+     [[ \$(omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeIdentity '') == \"0.4.0\" ]]" || return 1
 
   press meta_l-shift-ctrl-spc || return 1
   wait_for_guest_state "the native theme shortcut opens Theme Manager's theme mode" 20 ssh_session \
@@ -67,8 +67,39 @@ omarchy_host_test() {
   press meta_l-ctrl-spc || return 1
   wait_for_guest_state "the background shortcut opens wallpaper mode, not theme mode" 20 ssh_session \
     "omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
-       jq -e '.opened == true and .mode == \"wallpapers\" and .images > 0'" || return 1
+       jq -e '.opened == true and .mode == \"wallpapers\" and .images > 0 and \
+         .paletteReady == true and (.paletteSampledPath | length > 0)'" || return 1
   capture_console "success-theme-manager-03-local-wallpapers" || return 1
+
+  press ctrl-d || return 1
+  wait_for_guest_state "Ctrl+D persists the selected wallpaper as a favorite" 20 ssh_session \
+    "omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
+       jq -e '.currentFavorite == true and .favoriteCount == 1' && \
+     jq -e '.version == 2 and (.favorites | length) == 1' \
+       \"\$HOME/.config/omarchy/wallpaper-command-center.json\"" || return 1
+
+  press esc || return 1
+  wait_for_guest_state "the wallpaper picker closes with its favorite persisted" 20 ssh_session \
+    "hyprctl -j layers | jq -e \
+      '[.. | objects | select(.namespace? == \"omarchy-image-selector\")] | length == 0'" || return 1
+  press meta_l-ctrl-spc || return 1
+  wait_for_guest_state "the favorite survives a real picker reopen" 20 ssh_session \
+    "omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
+       jq -e '.opened == true and .mode == \"wallpapers\" and \
+         .currentFavorite == true and .favoriteCount == 1'" || return 1
+
+  press ctrl-shift-d || return 1
+  wait_for_guest_state "Ctrl+Shift+D enables favorites-only mode" 20 ssh_session \
+    "omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
+       jq -e '.favoritesOnly == true and .currentFavorite == true'" || return 1
+  capture_console "success-theme-manager-04-favorite-wallpaper" || return 1
+  press ctrl-shift-d || return 1
+  press ctrl-d || return 1
+  wait_for_guest_state "the favorite can be removed without leaving hidden state" 20 ssh_session \
+    "omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
+       jq -e '.favoritesOnly == false and .currentFavorite == false and .favoriteCount == 0' && \
+     jq -e '.version == 2 and (.favorites | length) == 0' \
+       \"\$HOME/.config/omarchy/wallpaper-command-center.json\"" || return 1
 
   press ctrl-b || return 1
   wait_for_guest_state "Ctrl+B enters the Aether-backed Wallhaven browser" 55 ssh_session \
@@ -76,7 +107,7 @@ omarchy_host_test() {
      find \"\$HOME/.cache/aether/wallhaven-thumbs\" -maxdepth 1 -type f -print -quit | grep -q . && \
      omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
        jq -e '.opened == true and .mode == \"wallhaven\" and .images > 0'" || return 1
-  capture_console "success-theme-manager-04-wallhaven" || return 1
+  capture_console "success-theme-manager-05-wallhaven" || return 1
 
   for key in m o u n t a i n; do
     press "$key" || return 1
@@ -110,7 +141,7 @@ omarchy_host_test() {
     press right || return 1
   done
   ssh_session "test ! -e \"\$HOME/.cache/aether/wallhaven-thumbs\"" || return 1
-  capture_console "success-theme-manager-05-filter-sheet" || return 1
+  capture_console "success-theme-manager-06-filter-sheet" || return 1
 
   press ret || return 1
   wait_for_guest_state "applying staged blue-palette filters starts one fresh Aether search" 55 ssh_session \
@@ -119,7 +150,7 @@ omarchy_host_test() {
      ! pgrep -u \"\$USER\" -x aether >/dev/null && \
      omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeState '' | \
        jq -e '.mode == \"wallhaven\" and .filtersOpen == false and .images > 0'" || return 1
-  capture_console "success-theme-manager-06-filtered" || return 1
+  capture_console "success-theme-manager-07-filtered" || return 1
 
   press ret || return 1
   wait_for_guest_state "the selected full wallpaper is downloaded and applied" 55 ssh_session \
@@ -129,7 +160,7 @@ omarchy_host_test() {
      hyprctl -j layers | jq -e \
        '[.. | objects | select(.namespace? == \"omarchy-image-selector\")] | length == 0'" || return 1
   ssh_session "test -z \"\$(hyprctl configerrors)\"" || return 1
-  capture_console "success-theme-manager-07-wallpaper-applied" || return 1
+  capture_console "success-theme-manager-08-wallpaper-applied" || return 1
 
   ssh_session "omarchy-plugin-disable io.github.mtolhuys.theme-manager" || return 1
   wait_for_guest_state "disabling Theme Manager restores the native picker" 20 ssh_session \
@@ -141,7 +172,7 @@ omarchy_host_test() {
   wait_for_guest_state "Theme Manager can be enabled again with the same runtime" 20 ssh_session \
     "omarchy-plugin-list --json | jq -e \
       'any(.[]; .id == \"io.github.mtolhuys.theme-manager\" and .enabled == true)' && \
-     [[ \$(omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeIdentity '') == \"0.2.0\" ]]" || return 1
+     [[ \$(omarchy-shell shell call io.github.mtolhuys.theme-manager runtimeIdentity '') == \"0.4.0\" ]]" || return 1
 
   ssh_session "omarchy-plugin-remove io.github.mtolhuys.theme-manager --yes" || return 1
   wait_for_guest_state "removal restores the native picker and keeps the wallpaper" 20 ssh_session \
@@ -151,5 +182,5 @@ omarchy_host_test() {
       'all(.[]; .id != \"io.github.mtolhuys.theme-manager\") and \
        any(.[]; .id == \"omarchy.image-picker\" and .enabled == true)'" || return 1
 
-  printf 'ok - theme catalog, contextual Aether browse/search/filters/download, and plugin lifecycle completed\n'
+  printf 'ok - favorites, live palette, theme catalog, Aether browsing, and plugin lifecycle completed\n'
 }

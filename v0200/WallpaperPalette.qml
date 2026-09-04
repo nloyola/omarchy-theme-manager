@@ -14,6 +14,7 @@ Item {
   property color secondary: fallbackAccent
   property bool ready: false
   property string sampledPath: ""
+  property int sourceGeneration: 0
 
   function reset() {
     ready = false
@@ -35,6 +36,7 @@ Item {
     }
     if (sampler.running) return
     sampler.activePath = path
+    sampler.activeGeneration = sourceGeneration
     sampler.result = ""
     sampler.command = [
       "magick", path + "[0]",
@@ -51,7 +53,11 @@ Item {
     sampler.running = true
   }
 
-  onSourcePathChanged: queueSample()
+  onSourcePathChanged: {
+    sourceGeneration += 1
+    reset()
+    queueSample()
+  }
   onFallbackBaseChanged: if (!ready) base = fallbackBase
   onFallbackAccentChanged: if (!ready) {
     accent = fallbackAccent
@@ -74,6 +80,7 @@ Item {
     id: sampler
     property string activePath: ""
     property string result: ""
+    property int activeGeneration: 0
 
     stdout: StdioCollector {
       waitForEnd: true
@@ -82,7 +89,9 @@ Item {
 
     onExited: function(exitCode) {
       const currentPath = String(root.sourcePath || "")
-      if (exitCode === 0 && activePath === currentPath) {
+      const sourceChanged = activeGeneration !== root.sourceGeneration
+        || activePath !== currentPath
+      if (exitCode === 0 && !sourceChanged) {
         const palette = WallpaperPaletteModel.paletteFromHistogram(result)
         if (palette) {
           root.base = palette.base
@@ -93,7 +102,10 @@ Item {
         }
       }
       activePath = ""
-      if (currentPath && currentPath !== root.sampledPath)
+      activeGeneration = 0
+      // A source change while ImageMagick was running needs one fresh sample.
+      // A failed sample of the current source must not become a process loop.
+      if (currentPath && sourceChanged)
         Qt.callLater(root.startSample)
     }
   }

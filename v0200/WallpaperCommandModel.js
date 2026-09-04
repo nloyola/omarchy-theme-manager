@@ -1,4 +1,5 @@
 const maxFavorites = 512
+const stateVersion = 2
 
 const stringValue = (value) => String(value || "")
 
@@ -8,41 +9,72 @@ const safePath = (value) => {
   return path
 }
 
+const safeText = (value, maximumLength = 255) => {
+  const text = stringValue(value).trim()
+  if (!text || text.length > maximumLength || /[\u0000-\u001f\u007f]/.test(text)) return ""
+  return text
+}
+
+const favoriteIdForPath = (path, context = {}) => {
+  const target = safePath(path)
+  if (!target) return ""
+
+  const themeRoot = safePath(context.themeRoot).replace(/\/+$/, "")
+  const themeName = safeText(context.themeName)
+  if (themeRoot && themeName && target.startsWith(themeRoot + "/")) {
+    const relativePath = target.slice(themeRoot.length + 1)
+    if (relativePath && !relativePath.includes("\0"))
+      return "theme:" + encodeURIComponent(themeName) + ":" + encodeURIComponent(relativePath)
+  }
+
+  return "path:" + encodeURIComponent(target)
+}
+
+const safeFavoriteId = (value) => {
+  const id = safeText(value, 8192)
+  return /^(?:path|theme):/.test(id) ? id : ""
+}
+
 const normalizeFavorites = (values) => {
   const seen = new Set()
   const result = []
 
   for (const value of Array.isArray(values) ? values : []) {
-    const path = safePath(value)
-    if (!path || seen.has(path)) continue
-    seen.add(path)
-    result.push(path)
+    const id = safeFavoriteId(value)
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    result.push(id)
     if (result.length >= maxFavorites) break
   }
 
   return result
 }
 
-const parseState = (raw) => {
+const parseState = (raw, context = {}) => {
   try {
     const parsed = JSON.parse(stringValue(raw) || "{}")
     const values = Array.isArray(parsed) ? parsed : parsed.favorites
-    return { version: 1, favorites: normalizeFavorites(values) }
+    const migrated =
+      parsed && parsed.version === stateVersion
+        ? values
+        : (Array.isArray(values) ? values : []).map((path) => favoriteIdForPath(path, context))
+    return { version: stateVersion, favorites: normalizeFavorites(migrated) }
   } catch (_error) {
-    return { version: 1, favorites: [] }
+    return { version: stateVersion, favorites: [] }
   }
 }
 
 const serializeState = (favorites) =>
-  JSON.stringify({ version: 1, favorites: normalizeFavorites(favorites) }, null, 2) + "\n"
+  JSON.stringify({ version: stateVersion, favorites: normalizeFavorites(favorites) }, null, 2) +
+  "\n"
 
-const isFavorite = (favorites, path) => {
-  const target = safePath(path)
+const isFavorite = (favorites, path, context = {}) => {
+  const target = favoriteIdForPath(path, context)
   return !!target && normalizeFavorites(favorites).includes(target)
 }
 
-const toggleFavorite = (favorites, path) => {
-  const target = safePath(path)
+const toggleFavorite = (favorites, path, context = {}) => {
+  const target = favoriteIdForPath(path, context)
   const normalized = normalizeFavorites(favorites)
   if (!target) return normalized
   if (normalized.includes(target)) return normalized.filter((value) => value !== target)
@@ -51,15 +83,15 @@ const toggleFavorite = (favorites, path) => {
 
 // Favorites form a stable front section in most-recently-favorited order;
 // everything else keeps the exact order supplied by Omarchy's picker.
-const prioritizeFavorites = (images, favorites) => {
+const prioritizeFavorites = (images, favorites, context = {}) => {
   const values = Array.isArray(images) ? images : []
-  const order = new Map(normalizeFavorites(favorites).map((path, index) => [path, index]))
+  const order = new Map(normalizeFavorites(favorites).map((id, index) => [id, index]))
   const saved = []
   const rest = []
 
   for (const image of values) {
-    const path = safePath(image && image.filePath)
-    if (order.has(path)) saved.push({ image, order: order.get(path) })
+    const id = favoriteIdForPath(image && image.filePath, context)
+    if (order.has(id)) saved.push({ image, order: order.get(id) })
     else rest.push(image)
   }
 
@@ -70,7 +102,9 @@ const prioritizeFavorites = (images, favorites) => {
 if (typeof module !== "undefined") {
   module.exports = {
     maxFavorites,
+    stateVersion,
     safePath,
+    favoriteIdForPath,
     normalizeFavorites,
     parseState,
     serializeState,

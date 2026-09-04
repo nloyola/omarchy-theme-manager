@@ -48,12 +48,15 @@ Item {
   property string localFilterText: ""
   property bool wallpaperPickerRequest: false
   readonly property string wallpaperCommandStatePath: Quickshell.env("HOME") + "/.config/omarchy/wallpaper-command-center.json"
-  property var favoritePaths: []
+  readonly property string currentThemeRoot: stateHome + "/omarchy/current/theme/backgrounds"
+  readonly property string currentThemeNamePath: stateHome + "/omarchy/current/theme.name"
+  property string currentThemeName: ""
+  property var favoriteIds: []
   property bool favoritesOnly: false
   readonly property bool wallpaperPickerActive: wallpaperPickerRequest
   readonly property bool localWallpaperMode: wallpaperPickerActive && !wallhavenMode && !catalogMode
   readonly property bool currentFavorite: localWallpaperMode
-    && WallpaperCommandModel.isFavorite(favoritePaths, currentPath())
+    && WallpaperCommandModel.isFavorite(favoriteIds, currentPath(), wallpaperFavoriteContext())
   readonly property string wallhavenFilterSummary: WallpaperBrowserModel.filterSummary({
     categories: wallhaven.categories,
     sorting: wallhaven.sorting,
@@ -131,7 +134,12 @@ Item {
                 : (wallpaperPickerActive ? "wallpapers" : "images"))),
       images: imageArray.length,
       query: wallhavenMode ? filterText : "",
-      filtersOpen: filterSheet.opened
+      filtersOpen: filterSheet.opened,
+      favoriteCount: favoriteIds.length,
+      currentFavorite: currentFavorite,
+      favoritesOnly: favoritesOnly,
+      paletteReady: wallpaperPalette.ready,
+      paletteSampledPath: wallpaperPalette.sampledPath
     })
   }
 
@@ -181,20 +189,30 @@ Item {
     return imageArray[selectedIndex].filePath
   }
 
+  function wallpaperFavoriteContext() {
+    return {
+      themeRoot: currentThemeRoot,
+      themeName: currentThemeName
+    }
+  }
+
   function loadWallpaperCommandState(raw) {
-    const state = WallpaperCommandModel.parseState(raw)
-    favoritePaths = state.favorites
+    const state = WallpaperCommandModel.parseState(raw, wallpaperFavoriteContext())
+    favoriteIds = state.favorites
     if (localWallpaperMode && imageArray.length > 0) reorderWallpapers()
   }
 
   function saveWallpaperCommandState() {
-    wallpaperCommandState.setText(WallpaperCommandModel.serializeState(favoritePaths))
+    wallpaperCommandState.setText(WallpaperCommandModel.serializeState(favoriteIds))
   }
 
   function reorderWallpapers() {
     if (!localWallpaperMode || imageArray.length === 0) return
     const selectedPath = currentPath()
-    imageArray = WallpaperCommandModel.prioritizeFavorites(imageArray, favoritePaths)
+    imageArray = WallpaperCommandModel.prioritizeFavorites(
+      imageArray,
+      favoriteIds,
+      wallpaperFavoriteContext())
     selectedIndex = ImagePickerModel.indexForSelectedImage(imageArray, selectedPath)
   }
 
@@ -202,15 +220,18 @@ Item {
     if (!localWallpaperMode) return
     const path = currentPath()
     if (!path) return
-    favoritePaths = WallpaperCommandModel.toggleFavorite(favoritePaths, path)
-    if (favoritesOnly && favoritePaths.length === 0) favoritesOnly = false
+    favoriteIds = WallpaperCommandModel.toggleFavorite(
+      favoriteIds,
+      path,
+      wallpaperFavoriteContext())
+    if (favoritesOnly && favoriteIds.length === 0) favoritesOnly = false
     reorderWallpapers()
     saveWallpaperCommandState()
     Qt.callLater(focusPicker)
   }
 
   function toggleFavoritesOnly() {
-    if (!localWallpaperMode || favoritePaths.length === 0) return
+    if (!localWallpaperMode || favoriteIds.length === 0) return
     favoritesOnly = !favoritesOnly
     if (!itemMatches(selectedIndex)) selectedIndex = firstMatchingIndex()
     Qt.callLater(focusPicker)
@@ -333,7 +354,10 @@ Item {
     if (localWallpaperMode && favoritesOnly) {
       if (index < 0 || index >= imageArray.length) return false
       const item = imageArray[index]
-      if (!item || !WallpaperCommandModel.isFavorite(favoritePaths, item.filePath)) return false
+      if (!item || !WallpaperCommandModel.isFavorite(
+          favoriteIds,
+          item.filePath,
+          wallpaperFavoriteContext())) return false
     }
     return ImagePickerModel.itemMatches(imageArray, index, filterText)
   }
@@ -565,7 +589,10 @@ Item {
   function loadRows(rows, reveal) {
     let newImages = ImagePickerModel.loadRows(rows)
     if (wallpaperPickerActive)
-      newImages = WallpaperCommandModel.prioritizeFavorites(newImages, favoritePaths)
+      newImages = WallpaperCommandModel.prioritizeFavorites(
+        newImages,
+        favoriteIds,
+        wallpaperFavoriteContext())
 
     root.loadedImageRows = rows
     root.selectedIndex = root.indexForSelectedImage(newImages)
@@ -599,6 +626,7 @@ Item {
     showLabels = nextShowLabels === true || nextShowLabels === "true"
     filterable = nextFilterable === true || nextFilterable === "true"
     filterText = ""
+    favoritesOnly = false
     layoutSettled = false
 
     if (imageRows && imageRows === loadedImageRows && imageArray.length > 0) {
@@ -687,6 +715,20 @@ Item {
     printErrors: false
     onLoaded: root.loadWallpaperCommandState(text())
     onLoadFailed: root.loadWallpaperCommandState("")
+  }
+
+  FileView {
+    id: currentThemeNameFile
+    path: root.currentThemeNamePath
+    watchChanges: true
+    printErrors: false
+    onLoaded: {
+      root.currentThemeName = String(text() || "").trim().slice(0, 255)
+      if (root.localWallpaperMode && root.imageArray.length > 0)
+        root.reorderWallpapers()
+    }
+    onLoadFailed: root.currentThemeName = ""
+    onFileChanged: reload()
   }
 
   WallpaperPalette {
@@ -1103,7 +1145,10 @@ Item {
                 anchors.right: parent.right
                 anchors.margins: Style.space(12)
                 visible: root.localWallpaperMode
-                  && WallpaperCommandModel.isFavorite(root.favoritePaths, item.filePath)
+                  && WallpaperCommandModel.isFavorite(
+                    root.favoriteIds,
+                    item.filePath,
+                    root.wallpaperFavoriteContext())
                 text: "★"
                 color: root.livePaletteAccent
                 style: Text.Outline
@@ -1234,7 +1279,7 @@ Item {
           }
 
           Button {
-            enabled: root.favoritePaths.length > 0
+            enabled: root.favoriteIds.length > 0
             text: root.favoritesOnly ? "★ Favorites" : "All"
             tooltipText: "Show only favorites (Ctrl+Shift+D)"
             foreground: root.favoritesOnly ? root.livePaletteAccent : root.foreground

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 - 2026-09-04
+
+- Add persistent, theme-aware local wallpaper favorites with favorite-first
+  ordering and a favorites-only view.
+- Add live wallpaper palette extraction and palette-driven picker atmosphere
+  without changing the active desktop theme.
+- Add native mouse controls and smooth, no-overshoot carousel motion.
+- Keep palette sampling bounded to one attempt per selected source and fall
+  back cleanly when an image cannot be sampled.
+- Extend disposable-VM acceptance to cover favorite persistence, public
+  shortcuts, live palette readiness, and the complete plugin lifecycle.
+- Thanks to [Fred Nix](https://github.com/nixfred) for the wallpaper command
+  center contribution.
+
 ## 0.2.0 - 2026-08-29
 
 - Add contextual SFW Wallhaven browse, keyword search, staged filters,
