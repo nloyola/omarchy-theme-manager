@@ -1,7 +1,9 @@
 #!/bin/bash
 
 image_dirs=${1:-}
-cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/omarchy/image-selector
+# LOCAL: this fork keeps its own thumbnail cache rather than sharing
+# omarchy's, so an omarchy install on the same machine is untouched.
+cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/qs-theme-manager/image-selector
 index_file="$cache_dir/index.tsv"
 
 mkdir -p "$cache_dir"

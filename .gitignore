@@ -3,3 +3,8 @@
 .DS_Store
 node_modules/
 .eslintcache
+
+# LOCAL: linked from this desktop's quickshell config by
+# scripts/link-shell-modules.sh - machine-specific, never committed.
+/Commons
+/Ui

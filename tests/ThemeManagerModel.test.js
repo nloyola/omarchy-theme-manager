@@ -3,13 +3,21 @@ const assert = require("node:assert/strict")
 
 const model = require("../v0200/ThemeManagerModel.js")
 
-test("recognizes only paths from the Omarchy theme preview cache", () => {
+// LOCAL: the preview cache is the one `qs-theme preview-links` fills, not
+// omarchy's theme-selector. Same shape - a directory of <name>.<ext> - so the
+// stem is still the theme name and everything downstream is unchanged.
+test("recognizes only paths from the theme preview cache", () => {
   assert.equal(
-    model.themeNameForPath("/home/test/.cache/omarchy/theme-selector/previews/amberbyte.png"),
+    model.themeNameForPath("/home/test/.cache/qs-theme/previews/amberbyte.png"),
     "amberbyte"
   )
   assert.equal(model.themeNameForPath("/home/test/Pictures/backgrounds/amberbyte.png"), "")
-  assert.equal(model.isThemePreviewPath("/tmp/omarchy/theme-selector/previews/no-extension"), false)
+  assert.equal(model.isThemePreviewPath("/tmp/qs-theme/previews/no-extension"), false)
+  // A path from an omarchy install on the same machine is not this one.
+  assert.equal(
+    model.themeNameForPath("/home/test/.cache/omarchy/theme-selector/previews/amberbyte.png"),
+    ""
+  )
 })
 
 test("validates theme names before they can reach a destructive command", () => {

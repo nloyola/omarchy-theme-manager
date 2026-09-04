@@ -6,6 +6,8 @@ Item {
   id: root
 
   property string catalogScriptPath: ""
+  // LOCAL: installing goes through qs-theme, not the omarchy CLI.
+  property string themeBin: ""
   property bool pickerOpen: false
   property var installedThemes: ({})
   property var stockThemes: ({})
@@ -96,7 +98,10 @@ Item {
     errorMessage = ""
     installStderr = ""
     installProc.targetEntry = entry
-    installProc.command = ["omarchy", "theme", "install", entry.repositoryUrl]
+    // LOCAL: qs-theme install clones the package, refuses it unless there is
+    // a colors.toml at the root that resolves, writes the URL to track it by
+    // and copies its backgrounds into the wallpaper library.
+    installProc.command = [themeBin, "install", entry.repositoryUrl]
     installProc.running = true
   }
 

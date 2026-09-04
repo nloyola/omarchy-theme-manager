@@ -18,8 +18,27 @@ Item {
   // Injected by omarchy-shell; defaults to the session OMARCHY_PATH.
   property string omarchyPath: Quickshell.env("OMARCHY_PATH")
   property var manifest: null
-  property string stateHome: Quickshell.env("HOME") + "/.local/state"
-  property string imageDirs: Quickshell.env("OMARCHY_IMAGE_SELECTOR_DIRS") || Quickshell.env("OMARCHY_IMAGE_SELECTOR_DIR") || Quickshell.env("OMARCHY_STOCK_BACKGROUNDS_DIR") || (stateHome + "/omarchy/current/theme/backgrounds")
+  // LOCAL: this fork runs as its own quickshell config, launched by
+  // scripts/theme-manager.sh, rather than inside the omarchy plugin host. The
+  // host used to hand it a source directory and an OMARCHY_PATH; here the
+  // scripts sit beside this file, so the root is either named outright by the
+  // launcher or worked out from where this QML was loaded from.
+  property string pluginRoot: Quickshell.env("QS_TM_ROOT")
+    || String(Qt.resolvedUrl("..")).replace(/^file:\/\//, "").replace(/\/$/, "")
+  // LOCAL: every theme operation goes through qs-theme, which is this
+  // desktop's resolver and the only thing that knows what a theme is here.
+  readonly property string themeBin: Quickshell.env("QS_THEME_BIN")
+    || (Quickshell.env("HOME") + "/.local/bin/qs-theme")
+  // LOCAL: where qs-theme install puts a package's backgrounds.
+  readonly property string wallpaperLib: Quickshell.env("QS_THEME_WALLPAPER_LIB")
+    || (Quickshell.env("HOME") + "/Dropbox/wallpapers")
+  // LOCAL: XDG_STATE_HOME honoured, because qs-theme writes there under it.
+  property string stateHome: Quickshell.env("XDG_STATE_HOME")
+    || (Quickshell.env("HOME") + "/.local/state")
+  // LOCAL: last resort is the wallpaper library rather than the current
+  // theme's backgrounds directory - a theme here owns a list of globs, not a
+  // folder, so there is no such directory to fall back on.
+  property string imageDirs: Quickshell.env("OMARCHY_IMAGE_SELECTOR_DIRS") || Quickshell.env("OMARCHY_IMAGE_SELECTOR_DIR") || Quickshell.env("OMARCHY_STOCK_BACKGROUNDS_DIR") || wallpaperLib
   property string imageRows: ""
   property string loadedImageRows: ""
   property string selectionFile: Quickshell.env("OMARCHY_IMAGE_SELECTOR_SELECTION_FILE") || Quickshell.env("OMARCHY_BACKGROUND_SELECTION_FILE")
@@ -47,9 +66,17 @@ Item {
   property int localSelectedIndex: 0
   property string localFilterText: ""
   property bool wallpaperPickerRequest: false
-  readonly property string wallpaperCommandStatePath: Quickshell.env("HOME") + "/.config/omarchy/wallpaper-command-center.json"
-  readonly property string currentThemeRoot: stateHome + "/omarchy/current/theme/backgrounds"
-  readonly property string currentThemeNamePath: stateHome + "/omarchy/current/theme.name"
+  // LOCAL: favourites and the command-centre record are state this program
+  // writes, not configuration anyone edits, so they live under the state home
+  // - and beside qs-theme's own generated files rather than in ~/.config,
+  // where Home Manager owns everything and a write would dirty the repo.
+  readonly property string wallpaperCommandStatePath: stateHome + "/qs-theme-manager/wallpaper-command-center.json"
+  // LOCAL: an installed theme's backgrounds are copied into the wallpaper
+  // library under the theme's own name, which is the closest thing here to
+  // omarchy's current/theme/backgrounds.
+  readonly property string currentThemeRoot: wallpaperLib + "/" + (currentThemeName || "")
+  // LOCAL: qs-theme records the live theme here, and writes it by rename.
+  readonly property string currentThemeNamePath: stateHome + "/theme/theme.name"
   property string currentThemeName: ""
   property var favoriteIds: []
   property bool favoritesOnly: false
@@ -153,12 +180,15 @@ Item {
   }
 
   function scriptPath(name) {
-    return omarchyPath + "/shell/plugins/image-picker/" + name
+    // LOCAL: list.sh ships in this fork rather than in an omarchy plugin dir.
+    return pluginRoot + "/" + name
   }
 
   function pluginScriptPath(name) {
     const sourceDir = manifest && manifest.__sourceDir ? String(manifest.__sourceDir) : ""
-    return sourceDir ? sourceDir.replace(/\/$/, "") + "/" + name : ""
+    // LOCAL: no plugin host sets __sourceDir here, so fall back to the root
+    // this config was loaded from.
+    return sourceDir ? sourceDir.replace(/\/$/, "") + "/" + name : (pluginRoot + "/" + name)
   }
 
   function focusPicker() {
@@ -818,6 +848,7 @@ Item {
     selectedPath: root.currentPath()
     pickerOpen: root.opened
     inventoryScriptPath: root.pluginScriptPath("theme-inventory.sh")
+    themeBin: root.themeBin   // LOCAL
     onThemeRemoved: function(name) { root.removeThemeFromRows(name) }
     onFocusRequested: Qt.callLater(root.focusPicker)
   }
@@ -825,6 +856,7 @@ Item {
   ThemeCatalogController {
     id: themeCatalog
     catalogScriptPath: root.pluginScriptPath("catalog.sh")
+    themeBin: root.themeBin   // LOCAL
     pickerOpen: root.opened
     installedThemes: themeManager.installedThemes
     stockThemes: themeManager.stockThemes

@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# LOCAL: open the theme manager, and act on what comes back.
+#
+#   theme-manager.sh [themes|wallpapers]
+#
+# Upstream never needs this: omarchy-shell summons the overlay over IPC and
+# owns the selection protocol at both ends. Standalone, something has to play
+# that part, and this is it - build the grid's directory, hand the overlay a
+# request, wait for the process to finish, then do what the answer says.
+#
+# The protocol itself is not forked. openSelector() still writes the chosen
+# path into the selection file and touches the done file, exactly as it does
+# under omarchy; this only reads the other end of it.
+#
+# WHY THE GRID IS A DIRECTORY OF SYMLINKS. The overlay browses images, so a
+# theme has to look like one. `qs-theme preview-links` fills a directory with
+# <name>.<ext> pointing at each theme's first wallpaper, and the theme name is
+# then the stem - which is the shape ThemeManagerModel.themeNameForPath reads,
+# and the same shape omarchy's theme-selector previews had.
+
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+project_dir=$(cd -- "$script_dir/.." && pwd)
+
+mode=${1:-themes}
+qs_theme=${QS_THEME_BIN:-$HOME/.local/bin/qs-theme}
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/qs-theme-manager
+cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/qs-theme-manager
+
+command -v quickshell >/dev/null 2>&1 || { echo "quickshell is not installed" >&2; exit 3; }
+[[ -x $qs_theme ]] || { echo "no qs-theme at $qs_theme" >&2; exit 3; }
+
+# The module links are not committed, so a fresh clone has none. Cheap enough
+# to confirm on every open rather than making it a separate setup step people
+# have to know about.
+"$script_dir/link-shell-modules.sh"
+
+mkdir -p "$state_dir" "$cache_dir"
+
+case $mode in
+    themes)
+        # No directory argument: qs-theme's own default is
+        # $XDG_CACHE_HOME/qs-theme/previews, and that "/qs-theme/previews/"
+        # is what ThemeManagerModel.isThemePreviewPath matches on. Naming a
+        # directory here would put the grid somewhere the model does not
+        # recognise as themes, and every tile would come back as a wallpaper.
+        image_dirs=$("$qs_theme" preview-links)
+        show_labels=true
+        ;;
+    wallpapers)
+        image_dirs=${QS_THEME_WALLPAPER_LIB:-$HOME/Dropbox/wallpapers}
+        show_labels=false
+        ;;
+    *)
+        echo "usage: theme-manager.sh [themes|wallpapers]" >&2
+        exit 2
+        ;;
+esac
+
+selection_file=$(mktemp "$state_dir/selection.XXXXXX")
+done_file=$(mktemp "$state_dir/done.XXXXXX")
+trap 'rm -f "$selection_file" "$done_file"' EXIT
+
+# Exactly the payload the plugin host passes, so openSelector() sees nothing
+# unusual. selectedImage starts the cursor on the theme already in force.
+selected=""
+if [[ $mode == themes ]]; then
+    current=$("$qs_theme" current 2>/dev/null || true)
+    if [[ -n $current ]]; then
+        selected=$(find "$image_dirs" -maxdepth 1 -name "$current.*" -print -quit 2>/dev/null || true)
+    fi
+fi
+
+export QS_TM_ROOT=$project_dir
+export QS_THEME_BIN=$qs_theme
+QS_TM_PAYLOAD=$(
+    IMAGE_DIRS=$image_dirs SELECTED=$selected \
+    SELECTION_FILE=$selection_file DONE_FILE=$done_file SHOW_LABELS=$show_labels \
+    python3 -c 'import json, os; print(json.dumps({
+        "imageDirs": os.environ["IMAGE_DIRS"],
+        "selectedImage": os.environ["SELECTED"],
+        "selectionFile": os.environ["SELECTION_FILE"],
+        "doneFile": os.environ["DONE_FILE"],
+        "showLabels": os.environ["SHOW_LABELS"] == "true",
+        "filterable": True,
+    }))'
+)
+export QS_TM_PAYLOAD
+
+# One at a time. Two overlays on the Overlay layer both taking exclusive
+# keyboard focus is a session you have to kill from a TTY.
+if command -v flock >/dev/null 2>&1; then
+    flock -n "$state_dir/manager.lock" quickshell -p "$project_dir/Main.qml" || exit 0
+else
+    quickshell -p "$project_dir/Main.qml"
+fi
+
+# Nothing chosen is the ordinary way out of a picker, not a failure.
+[[ -s $selection_file ]] || exit 0
+choice=$(head -1 "$selection_file")
+[[ -n $choice ]] || exit 0
+
+case $mode in
+    themes)
+        name=${choice##*/}
+        name=${name%.*}
+        exec "$qs_theme" set "$name"
+        ;;
+    wallpapers)
+        wallpaper=${QS_WALLPAPER_BIN:-$HOME/.local/bin/qs-wallpaper}
+        output=${QS_WALLPAPER_OUTPUT:-}
+        if [[ -z $output ]] && command -v hyprctl >/dev/null 2>&1; then
+            output=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name') || output=""
+        fi
+        [[ -n $output ]] || { echo "no output to set the wallpaper on" >&2; exit 1; }
+        exec "$wallpaper" set "$output" "$choice"
+        ;;
+esac

@@ -9,6 +9,13 @@ Item {
   property string selectedPath: ""
   property bool pickerOpen: false
   property string inventoryScriptPath: ""
+  // LOCAL: qs-theme answers both of these itself - `inventory` for what is
+  // installed and `remove` for dropping one - so the manager never forms a
+  // second opinion about what a theme is by scanning a directory of its own.
+  property string themeBin: ""
+  readonly property var inventoryCommand: themeBin
+    ? [themeBin, "inventory"]
+    : [inventoryScriptPath]
   property string currentThemeName: ""
   property var installedThemes: ({})
   property var stockThemes: ({})
@@ -20,7 +27,9 @@ Item {
   property string errorMessage: ""
   property string uninstallStderr: ""
 
-  readonly property string currentThemeFile: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
+  // LOCAL: qs-theme records the live theme here.
+  readonly property string currentThemeFile: (Quickshell.env("XDG_STATE_HOME")
+    || (Quickshell.env("HOME") + "/.local/state")) + "/theme/theme.name"
   readonly property string selectedThemeName: ThemeManagerModel.themeNameForPath(selectedPath)
   readonly property bool themePickerActive: selectedThemeName !== ""
   readonly property bool selectedThemeInstalled: inventoryReady
@@ -64,7 +73,7 @@ Item {
     inventoryReady = false
     errorMessage = ""
     inventoryProc.refreshQueued = false
-    inventoryProc.command = [inventoryScriptPath]
+    inventoryProc.command = inventoryCommand
     inventoryProc.running = true
   }
 
@@ -97,7 +106,9 @@ Item {
     errorMessage = ""
     uninstallStderr = ""
     uninstallProc.targetTheme = themeName
-    uninstallProc.command = ["omarchy", "theme", "remove", themeName]
+    // LOCAL: qs-theme remove refuses the live theme and the fallback itself,
+    // so the guards here and there agree rather than one trusting the other.
+    uninstallProc.command = [themeBin, "remove", themeName]
     uninstallProc.running = true
   }
 
