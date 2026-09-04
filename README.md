@@ -21,6 +21,11 @@ still has exactly one replacement for `omarchy.image-picker`.
 
 ### Wallpapers
 
+- Save local wallpapers as persistent favorites with `Ctrl+D`, filter the
+  carousel to favorites with `Ctrl+Shift+D`, and watch saved images rearrange
+  into a stable front section.
+- Glide between expanding previews with monotonic, no-overshoot motion and a
+  visible star on every saved wallpaper.
 - Browse SFW Wallhaven results inside the regular background carousel.
 - Type to search by Wallhaven keywords.
 - Filter by category, sorting, direction, minimum resolution, and Wallhaven
@@ -111,6 +116,8 @@ Open the regular background switcher with `Super+Ctrl+Space`.
 - Continue right to load more automatically, or choose **Load more** / press
   `Ctrl+N`.
 - Press `Enter` to download and apply the selection.
+- On local wallpapers, press `Ctrl+D` to save/remove a favorite and
+  `Ctrl+Shift+D` to toggle favorites-only mode.
 - Press `Escape` to clear the search, return to local wallpapers, or close.
 
 Inside the filter sheet, use Up/Down between rows, Left/Right between choices,

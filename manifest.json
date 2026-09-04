@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.mtolhuys.theme-manager",
   "name": "Omarchy Theme Manager",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Maarten Tolhuijs",
   "license": "MIT",
   "description": "Manage Omarchy themes and browse Aether-backed Wallhaven wallpapers from the native picker.",
