@@ -7,6 +7,10 @@ Row {
 
   property string summary: "All categories  ·  Latest ↓  ·  1080p+"
   property bool filtersActive: false
+  // LOCAL: handed down by ImagePicker so this sheet's text and padding
+  // scale with the overlay it opens over. 1 is upstream's own size.
+  property real uiScale: 1
+  function px(n) { return Math.max(1, Math.round(n * uiScale)) }
   property color foreground: Color.foreground
   property color accent: Color.accent
 
@@ -22,8 +26,9 @@ Row {
     foreground: root.foreground
     accent: root.accent
     bordered: true
-    horizontalPadding: Style.space(12)
-    verticalPadding: Style.space(6)
+    fontSize: root.px(Style.font.body)
+    horizontalPadding: root.px(Style.space(12))
+    verticalPadding: root.px(Style.space(6))
     onClicked: root.openRequested()
   }
 
@@ -32,7 +37,7 @@ Row {
     text: root.summary
     color: root.foreground
     opacity: 0.78
-    font.pixelSize: Style.font.bodySmall
+    font.pixelSize: root.px(Style.font.bodySmall)
     textFormat: Text.PlainText
   }
 }

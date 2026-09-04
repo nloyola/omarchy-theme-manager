@@ -118,15 +118,37 @@ Item {
   readonly property color activeSelectedBorder: livePaletteReady
     ? livePaletteAccent
     : selectedBorder
+  // LOCAL: 0.94 rather than upstream's 0.82, to match the shell's own
+  // image-picker scrim. This is the branch that tints the wash with the
+  // palette of the wallpaper under the cursor, and at 0.82 a light window
+  // behind the overlay still washed the chrome out.
   readonly property color activeScrim: livePaletteReady
-    ? Util.alpha(livePaletteBase, 0.82)
+    ? Util.alpha(livePaletteBase, 0.94)
     : scrim
-  property int expandedWidth: 768
-  property int expandedHeight: 475
-  property int sliceWidth: 108
-  property int sliceHeight: 432
-  property int sliceSpacing: -30
-  property int skewOffset: 28
+  // LOCAL: upstream fixes the carousel in pixels, which were drawn against a
+  // 1080p surface - on the 4K screens here, at scale 1, that left a 768px
+  // preview a fifth of the way across a 3840px monitor and the whole picker
+  // occupying a band a quarter of the height. The numbers below are still
+  // upstream's; what is local is multiplying them by the surface's own size
+  // against that reference, so the picker keeps the proportions it was drawn
+  // with whatever it is opened on. Clamped at both ends: never smaller than
+  // upstream drew it, and never past 2x, beyond which the pictures outrun the
+  // labels under them - those follow the shell's typography, not this.
+  readonly property real uiScale: Math.max(1, Math.min(2,
+    Math.min(panel.width / 1920, panel.height / 1080)))
+  // LOCAL: the overlay's own text and control padding scale with uiScale for
+  // the same reason its pictures do. Doubling the preview and leaving a 12px
+  // label under it is what made the buttons the hardest thing on screen to
+  // read. Style's tokens stay the source of every size; this only multiplies
+  // them, and only inside this overlay - the bar and every other qs.Ui
+  // surface run in another process and are untouched.
+  function px(n) { return Math.max(1, Math.round(n * uiScale)) }
+  property int expandedWidth: Math.round(768 * uiScale)
+  property int expandedHeight: Math.round(475 * uiScale)
+  property int sliceWidth: Math.round(108 * uiScale)
+  property int sliceHeight: Math.round(432 * uiScale)
+  property int sliceSpacing: Math.round(-30 * uiScale)
+  property int skewOffset: Math.round(28 * uiScale)
   property int bottomChromeHeight: wallhavenMode || catalogMode
     ? 150
     : (wallpaperPickerActive
@@ -1196,7 +1218,7 @@ Item {
                   && (!item.thumbnailPath || image.status === Image.Error)
                 text: "Preview unavailable"
                 color: root.foreground
-                font.pixelSize: Style.font.title
+                font.pixelSize: root.px(Style.font.title)
                 textFormat: Text.PlainText
               }
 
@@ -1218,7 +1240,7 @@ Item {
                 color: root.livePaletteAccent
                 style: Text.Outline
                 styleColor: Util.alpha(root.dimColor, 0.82)
-                font.pixelSize: item.selected ? Style.font.display : Style.font.title
+                font.pixelSize: root.px(item.selected ? Style.font.display : Style.font.title)
                 font.weight: Font.Bold
                 opacity: item.selected ? 1.0 : 0.86
                 Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
@@ -1257,7 +1279,7 @@ Item {
                   Text {
                     text: "LIVE PALETTE"
                     color: root.foreground
-                    font.pixelSize: Style.font.caption
+                    font.pixelSize: root.px(Style.font.caption)
                     font.weight: Font.DemiBold
                     textFormat: Text.PlainText
                   }
@@ -1338,8 +1360,9 @@ Item {
             foreground: root.currentFavorite ? root.livePaletteAccent : root.foreground
             accent: root.livePaletteAccent
             bordered: true
-            horizontalPadding: Style.space(10)
-            verticalPadding: Style.space(7)
+            fontSize: root.px(Style.font.body)
+            horizontalPadding: root.px(Style.space(10))
+            verticalPadding: root.px(Style.space(7))
             onClicked: root.toggleCurrentFavorite()
           }
 
@@ -1350,8 +1373,9 @@ Item {
             foreground: root.favoritesOnly ? root.livePaletteAccent : root.foreground
             accent: root.livePaletteAccent
             bordered: true
-            horizontalPadding: Style.space(10)
-            verticalPadding: Style.space(7)
+            fontSize: root.px(Style.font.body)
+            horizontalPadding: root.px(Style.space(10))
+            verticalPadding: root.px(Style.space(7))
             onClicked: root.toggleFavoritesOnly()
           }
         }
@@ -1367,7 +1391,7 @@ Item {
           color: root.foreground
           style: Text.Outline
           styleColor: Util.alpha(root.dimColor, 0.7)
-          font.pixelSize: root.wallhavenMode ? Style.font.title : Style.font.display
+          font.pixelSize: root.px(root.wallhavenMode ? Style.font.title : Style.font.display)
           font.weight: Font.DemiBold
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
@@ -1384,8 +1408,9 @@ Item {
           foreground: root.foreground
           accent: root.livePaletteAccent
           bordered: true
-          horizontalPadding: Style.space(12)
-          verticalPadding: Style.space(7)
+          fontSize: root.px(Style.font.body)
+          horizontalPadding: root.px(Style.space(12))
+          verticalPadding: root.px(Style.space(7))
           onClicked: root.openWallhaven()
         }
 
@@ -1406,8 +1431,9 @@ Item {
           foreground: root.foreground
           accent: Color.accent
           bordered: true
-          horizontalPadding: Style.space(12)
-          verticalPadding: Style.space(7)
+          fontSize: root.px(Style.font.body)
+          horizontalPadding: root.px(Style.space(12))
+          verticalPadding: root.px(Style.space(7))
           onClicked: root.openCatalog()
         }
 
@@ -1421,8 +1447,9 @@ Item {
           foreground: root.foreground
           accent: Color.accent
           bordered: true
-          horizontalPadding: Style.space(12)
-          verticalPadding: Style.space(7)
+          fontSize: root.px(Style.font.body)
+          horizontalPadding: root.px(Style.space(12))
+          verticalPadding: root.px(Style.space(7))
           onClicked: root.leaveCatalog(true)
         }
 
@@ -1436,8 +1463,9 @@ Item {
           foreground: root.foreground
           accent: Color.accent
           bordered: true
-          horizontalPadding: Style.space(12)
-          verticalPadding: Style.space(7)
+          fontSize: root.px(Style.font.body)
+          horizontalPadding: root.px(Style.space(12))
+          verticalPadding: root.px(Style.space(7))
           onClicked: root.leaveWallhaven(true)
         }
 
@@ -1456,8 +1484,9 @@ Item {
           foreground: root.foreground
           accent: Color.accent
           bordered: true
-          horizontalPadding: Style.space(12)
-          verticalPadding: Style.space(7)
+          fontSize: root.px(Style.font.body)
+          horizontalPadding: root.px(Style.space(12))
+          verticalPadding: root.px(Style.space(7))
           onClicked: {
             wallhaven.loadMore()
             Qt.callLater(root.focusPicker)
@@ -1483,8 +1512,9 @@ Item {
           foreground: themeManager.selectedThemeIsCurrent ? Color.muted : Color.urgent
           accent: Color.urgent
           bordered: true
-          horizontalPadding: Style.space(12)
-          verticalPadding: Style.space(7)
+          fontSize: root.px(Style.font.body)
+          horizontalPadding: root.px(Style.space(12))
+          verticalPadding: root.px(Style.space(7))
           onClicked: themeManager.requestUninstall()
         }
 
@@ -1507,13 +1537,15 @@ Item {
           foreground: themeCatalog.canInstallSelected ? Color.accent : Color.muted
           accent: Color.accent
           bordered: true
-          horizontalPadding: Style.space(12)
-          verticalPadding: Style.space(7)
+          fontSize: root.px(Style.font.body)
+          horizontalPadding: root.px(Style.space(12))
+          verticalPadding: root.px(Style.space(7))
           onClicked: themeCatalog.requestInstall()
         }
       }
 
       WallhavenFilterBar {
+        uiScale: root.uiScale
         id: wallhavenFilters
         visible: root.wallhavenMode
         anchors.top: footer.bottom
@@ -1549,7 +1581,7 @@ Item {
         opacity: 0.9
         style: Text.Outline
         styleColor: Util.alpha(root.dimColor, 0.7)
-        font.pixelSize: Style.font.body
+        font.pixelSize: root.px(Style.font.body)
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
         textFormat: Text.PlainText
@@ -1571,7 +1603,7 @@ Item {
           opacity: 0.75
           style: Text.Outline
           styleColor: Util.alpha(root.dimColor, 0.7)
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.px(Style.font.caption)
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
           textFormat: Text.PlainText
@@ -1585,7 +1617,7 @@ Item {
           opacity: 0.85
           style: Text.Outline
           styleColor: Util.alpha(root.dimColor, 0.7)
-          font.pixelSize: Style.font.title
+          font.pixelSize: root.px(Style.font.title)
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
           textFormat: Text.PlainText
@@ -1599,7 +1631,7 @@ Item {
           color: Color.urgent
           style: Text.Outline
           styleColor: Util.alpha(root.dimColor, 0.7)
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.px(Style.font.caption)
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
           textFormat: Text.PlainText
@@ -1663,7 +1695,7 @@ Item {
             : "No Wallhaven wallpapers found"
         }
         color: wallhaven.errorMessage ? Color.urgent : root.foreground
-        font.pixelSize: Style.font.title
+        font.pixelSize: root.px(Style.font.title)
         font.weight: Font.DemiBold
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
@@ -1678,11 +1710,12 @@ Item {
         text: "Type to search  ·  Escape to return to local wallpapers"
         color: root.foreground
         opacity: 0.75
-        font.pixelSize: Style.font.body
+        font.pixelSize: root.px(Style.font.body)
         textFormat: Text.PlainText
       }
 
       WallhavenFilterBar {
+        uiScale: root.uiScale
         id: emptyStateFilters
         anchors.top: emptyStateHint.bottom
         anchors.topMargin: Style.space(16)
@@ -1704,13 +1737,15 @@ Item {
         foreground: root.foreground
         accent: Color.accent
         bordered: true
-        horizontalPadding: Style.space(12)
-        verticalPadding: Style.space(7)
+        fontSize: root.px(Style.font.body)
+        horizontalPadding: root.px(Style.space(12))
+        verticalPadding: root.px(Style.space(7))
         onClicked: root.searchWallhaven()
       }
     }
 
     WallhavenFilterSheet {
+      uiScale: root.uiScale
       id: filterSheet
 
       anchors.fill: parent

@@ -9,6 +9,10 @@ Item {
   id: root
 
   property bool opened: false
+  // LOCAL: handed down by ImagePicker so this sheet's text and padding
+  // scale with the overlay it opens over. 1 is upstream's own size.
+  property real uiScale: 1
+  function px(n) { return Math.max(1, Math.round(n * uiScale)) }
   property string draftCategories: "111"
   property string draftSorting: "date_added"
   property string draftOrder: "desc"
@@ -174,7 +178,7 @@ Item {
           anchors.top: parent.top
           text: "Filter Wallhaven"
           color: root.foreground
-          font.pixelSize: Style.font.heading
+          font.pixelSize: root.px(Style.font.heading)
           font.weight: Font.DemiBold
           textFormat: Text.PlainText
         }
@@ -185,7 +189,7 @@ Item {
           text: "Stage your choices, then make one Aether request"
           color: root.foreground
           opacity: 0.64
-          font.pixelSize: Style.font.bodySmall
+          font.pixelSize: root.px(Style.font.bodySmall)
           textFormat: Text.PlainText
         }
 
@@ -203,7 +207,7 @@ Item {
             anchors.centerIn: parent
             text: "SFW only"
             color: root.accent
-            font.pixelSize: Style.font.bodySmall
+            font.pixelSize: root.px(Style.font.bodySmall)
             font.weight: Font.DemiBold
             textFormat: Text.PlainText
           }
@@ -221,7 +225,7 @@ Item {
           text: "Categories"
           color: root.cursorSection === 0 ? root.accent : root.foreground
           opacity: root.cursorSection === 0 ? 1 : 0.72
-          font.pixelSize: Style.font.body
+          font.pixelSize: root.px(Style.font.body)
           font.weight: root.cursorSection === 0 ? Font.DemiBold : Font.Normal
           textFormat: Text.PlainText
         }
@@ -245,8 +249,9 @@ Item {
               foreground: root.foreground
               accent: root.accent
               bordered: true
-              horizontalPadding: Style.space(12)
-              verticalPadding: Style.space(6)
+              fontSize: root.px(Style.font.body)
+              horizontalPadding: root.px(Style.space(12))
+              verticalPadding: root.px(Style.space(6))
               onClicked: {
                 root.cursorSection = 0
                 root.categoryCursor = index
@@ -268,7 +273,7 @@ Item {
           text: "Sort"
           color: root.cursorSection === 1 ? root.accent : root.foreground
           opacity: root.cursorSection === 1 ? 1 : 0.72
-          font.pixelSize: Style.font.body
+          font.pixelSize: root.px(Style.font.body)
           font.weight: root.cursorSection === 1 ? Font.DemiBold : Font.Normal
           textFormat: Text.PlainText
         }
@@ -292,9 +297,9 @@ Item {
               foreground: root.foreground
               accent: root.accent
               bordered: true
-              fontSize: Style.font.bodySmall
-              horizontalPadding: Style.space(8)
-              verticalPadding: Style.space(6)
+              fontSize: root.px(Style.font.bodySmall)
+              horizontalPadding: root.px(Style.space(8))
+              verticalPadding: root.px(Style.space(6))
               onClicked: {
                 root.cursorSection = 1
                 root.sortingCursor = index
@@ -309,9 +314,9 @@ Item {
             foreground: root.foreground
             accent: root.accent
             bordered: true
-            fontSize: Style.font.body
-            horizontalPadding: Style.space(8)
-            verticalPadding: Style.space(5)
+            fontSize: root.px(Style.font.body)
+            horizontalPadding: root.px(Style.space(8))
+            verticalPadding: root.px(Style.space(5))
             onClicked: {
               root.cursorSection = 1
               root.draftOrder = root.draftOrder === "desc" ? "asc" : "desc"
@@ -331,7 +336,7 @@ Item {
           text: "Minimum size"
           color: root.cursorSection === 2 ? root.accent : root.foreground
           opacity: root.cursorSection === 2 ? 1 : 0.72
-          font.pixelSize: Style.font.body
+          font.pixelSize: root.px(Style.font.body)
           font.weight: root.cursorSection === 2 ? Font.DemiBold : Font.Normal
           textFormat: Text.PlainText
         }
@@ -355,8 +360,9 @@ Item {
               foreground: root.foreground
               accent: root.accent
               bordered: true
-              horizontalPadding: Style.space(10)
-              verticalPadding: Style.space(6)
+              fontSize: root.px(Style.font.body)
+              horizontalPadding: root.px(Style.space(10))
+              verticalPadding: root.px(Style.space(6))
               onClicked: {
                 root.cursorSection = 2
                 root.resolutionCursor = index
@@ -378,7 +384,7 @@ Item {
           text: "Palette color"
           color: root.cursorSection === 3 ? root.accent : root.foreground
           opacity: root.cursorSection === 3 ? 1 : 0.72
-          font.pixelSize: Style.font.body
+          font.pixelSize: root.px(Style.font.body)
           font.weight: root.cursorSection === 3 ? Font.DemiBold : Font.Normal
           textFormat: Text.PlainText
         }
@@ -414,7 +420,7 @@ Item {
                 color: swatch.index === 0
                   ? root.foreground
                   : (["ffcc33", "cccccc", "ffffff"].includes(swatch.modelData.value) ? "#111111" : "#ffffff")
-                font.pixelSize: Style.font.bodySmall
+                font.pixelSize: root.px(Style.font.bodySmall)
                 font.weight: Font.DemiBold
                 textFormat: Text.PlainText
               }
@@ -442,7 +448,7 @@ Item {
             text: root.colorOptions[root.colorCursor].label
             color: root.foreground
             opacity: 0.72
-            font.pixelSize: Style.font.bodySmall
+            font.pixelSize: root.px(Style.font.bodySmall)
             elide: Text.ElideRight
             textFormat: Text.PlainText
           }
@@ -455,7 +461,7 @@ Item {
           text: "Wallhaven palette tag; selected color need not dominate"
           color: root.foreground
           opacity: 0.56
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.px(Style.font.caption)
           textFormat: Text.PlainText
         }
       }
@@ -471,7 +477,7 @@ Item {
           text: "↑↓ section  ·  ←→ choice  ·  Space toggle  ·  D direction  ·  Enter apply"
           color: root.foreground
           opacity: 0.58
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.px(Style.font.caption)
           textFormat: Text.PlainText
         }
 
@@ -485,8 +491,9 @@ Item {
             foreground: root.foreground
             accent: root.accent
             bordered: true
-            horizontalPadding: Style.space(12)
-            verticalPadding: Style.space(7)
+            fontSize: root.px(Style.font.body)
+            horizontalPadding: root.px(Style.space(12))
+            verticalPadding: root.px(Style.space(7))
             onClicked: root.resetDraft()
           }
 
@@ -495,8 +502,9 @@ Item {
             foreground: root.foreground
             accent: root.accent
             bordered: true
-            horizontalPadding: Style.space(12)
-            verticalPadding: Style.space(7)
+            fontSize: root.px(Style.font.body)
+            horizontalPadding: root.px(Style.space(12))
+            verticalPadding: root.px(Style.space(7))
             onClicked: root.cancel()
           }
 
@@ -506,8 +514,9 @@ Item {
             foreground: root.foreground
             accent: root.accent
             bordered: true
-            horizontalPadding: Style.space(14)
-            verticalPadding: Style.space(7)
+            fontSize: root.px(Style.font.body)
+            horizontalPadding: root.px(Style.space(14))
+            verticalPadding: root.px(Style.space(7))
             onClicked: root.apply()
           }
         }
