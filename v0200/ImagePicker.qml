@@ -1174,7 +1174,17 @@ Item {
                       : Util.fileUrl(item.thumbnailPath))
                   : ""
                 fillMode: Image.PreserveAspectCrop
-                asynchronous: root.wallhavenMode || root.catalogMode
+                // LOCAL: async for the local grid too, not just the two remote
+                // ones. Upstream browses a handful of theme backgrounds and
+                // can afford to decode them on the GUI thread; the wallpaper
+                // library here is 658 images, and even thumbnailed, a
+                // synchronous decode per step through the grid is a stutter
+                // you can feel. sourceSize caps the decode at roughly the
+                // slice it is drawn into, so a 62MB original never becomes a
+                // 62MB texture on the way past.
+                asynchronous: true
+                sourceSize.width: root.sliceWidth * 4
+                sourceSize.height: root.sliceHeight * 2
                 cache: true
                 smooth: true
               }

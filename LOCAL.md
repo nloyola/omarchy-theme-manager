@@ -11,8 +11,24 @@ complete list and a merge from upstream is readable.
 
 ## Open it
 
-    scripts/theme-manager.sh            # themes
-    scripts/theme-manager.sh wallpapers # the wallpaper library
+    scripts/theme-manager.sh            # themes      ($mod+SHIFT+T)
+    scripts/theme-manager.sh wallpapers # wallpapers  ($mod+SHIFT+W)
+
+Both keys, the bar's display chip and the two `style.*` menu entries come here.
+They used to go to `qs-wallpaper-picker`, which carried its own theme grid,
+wallpaper grid and Wallhaven browser over a separate cache - and whose theme
+mode would download a Wallhaven image and then pass its filename to `qs-theme
+set`, which is not a theme name, so the pick silently did nothing. One app now
+owns all of it.
+
+Wallpapers mode needed two things before it could carry those keys. It scans
+the library roots **and their subject folders**, because `list.sh` walks each
+directory it is given with `find -maxdepth 1` and every wallpaper here lives one
+level down - named only the roots, the grid came up empty. And
+`scripts/sync-thumbs.sh` fills the thumbnail cache `list.sh` reads, which off
+Omarchy nothing else ever wrote: without it the grid was handed 658 originals
+averaging 3.6MB. Both roots come from `QS_WALLPAPER_SOURCES` (colon separated,
+defaulting to `$QS_THEME_WALLPAPER_LIB` and `~/wallpapers`).
 
 ## What changed, and why
 

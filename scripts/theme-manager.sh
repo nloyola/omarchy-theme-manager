@@ -28,6 +28,19 @@ qs_theme=${QS_THEME_BIN:-$HOME/.local/bin/qs-theme}
 state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/qs-theme-manager
 cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/qs-theme-manager
 
+thumbnails_are_stale() {
+    local stamp=$1 dirs=$2 dir
+
+    [[ -f $stamp ]] || return 0
+
+    while IFS= read -r dir; do
+        [[ -n $dir && -d $dir ]] || continue
+        [[ -n $(find -L "$dir" -maxdepth 1 -newer "$stamp" -print -quit 2>/dev/null) ]] && return 0
+    done <<<"$dirs"
+
+    return 1
+}
+
 command -v quickshell >/dev/null 2>&1 || { echo "quickshell is not installed" >&2; exit 3; }
 [[ -x $qs_theme ]] || { echo "no qs-theme at $qs_theme" >&2; exit 3; }
 
@@ -49,7 +62,45 @@ case $mode in
         show_labels=true
         ;;
     wallpapers)
-        image_dirs=${QS_THEME_WALLPAPER_LIB:-$HOME/Dropbox/wallpapers}
+        # LOCAL: WHY THE SUBJECT FOLDERS ARE NAMED ONE BY ONE. list.sh scans
+        # every directory it is handed with `find -maxdepth 1`, and this host
+        # files each wallpaper one level down, in a subject folder (Landscapes,
+        # lotr, omarchy, 4k, ...). Naming only the roots therefore lists
+        # nothing at all - which is what this mode did until the wallpaper keys
+        # moved onto it. imageDirs is newline separated, so the answer is to
+        # hand over the roots AND their immediate children, which is also the
+        # shape isLocalWallpaperRequest already reads.
+        #
+        # Two roots, because this desktop has two: the library qs-theme install
+        # copies a theme's backgrounds into, and the local tree beside it.
+        # QS_WALLPAPER_SOURCES overrides with a colon separated list - the same
+        # variable, with the same meaning, as the picker this replaced.
+        sources=${QS_WALLPAPER_SOURCES:-${QS_THEME_WALLPAPER_LIB:-$HOME/Dropbox/wallpapers}:$HOME/wallpapers}
+        image_dirs=$(
+            while IFS= read -r root; do
+                [[ -n $root && -d $root ]] || continue
+                printf '%s\n' "$root"
+                find -L "$root" -mindepth 1 -maxdepth 1 -type d -print
+            done <<<"${sources//:/$'\n'}" | sort -u
+        )
+        [[ -n $image_dirs ]] || { echo "no wallpaper directory in $sources" >&2; exit 3; }
+
+        # THUMBNAILS. list.sh serves the original when it finds no thumbnail
+        # cached, and nothing off Omarchy ever filled that cache - so the grid
+        # was handed 658 full-size images, 2.4GB of them, loaded on the GUI
+        # thread. scripts/sync-thumbs.sh is the missing half; see its header.
+        #
+        # Only when something moved: one `find -newer` per directory, stopping
+        # at the first hit. Adding, deleting or renaming an image bumps its
+        # folder's mtime and editing one in place bumps the file's, so both are
+        # caught, and a new subject folder bumps the root's. The stamp is
+        # written only on success, so an interrupted pass is redone rather than
+        # leaving permanent gaps in the grid.
+        stamp=$cache_dir/thumbs.stamp
+        if thumbnails_are_stale "$stamp" "$image_dirs"; then
+            printf '%s\n' "$image_dirs" | "$script_dir/sync-thumbs.sh" && touch "$stamp"
+        fi
+
         show_labels=false
         ;;
     *)
