@@ -50,6 +50,13 @@ that resolves, records the URL to track it by, and copies its `backgrounds/`
 into the wallpaper library. `qs-theme remove` refuses the live theme and the
 fallback. So the guards at both ends agree rather than one trusting the other.
 
+Installing and removing write real files into the theme directory, which is a
+git repository of its own ([qs-themes](https://github.com/nloyola/qs-themes)) -
+so a theme added here shows up as an uncommitted change there, waiting to be
+committed, and never in the dotfiles repo that carries it. Only the images
+escape: `backgrounds/` goes to the wallpaper library outside any repository.
+Switching a theme writes nothing there at all.
+
 The theme grid is a directory of `<name>.<ext>` symlinks that
 `qs-theme preview-links` fills, one per theme, pointing at that theme's first
 wallpaper - the same shape omarchy's preview cache had, so the theme name is
