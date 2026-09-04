@@ -38,8 +38,6 @@ still has exactly one replacement for `omarchy.image-picker`.
 - Download the selected full-resolution image and apply it through Omarchy's
   existing background-selection round trip.
 
-![A saved local wallpaper with its live palette applied to the native picker](assets/wallpaper-command-center.webp)
-
 The Wallhaven action is shown only for background-picker requests. Theme-picker
 requests keep the theme catalog and uninstall controls; other image-picker
 requests keep Omarchy's stock behavior.
