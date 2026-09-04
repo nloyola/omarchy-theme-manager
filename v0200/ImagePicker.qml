@@ -179,6 +179,19 @@ Item {
     }
   }
 
+  // LOCAL: is this request browsing the wallpaper library rather than themes?
+  // imageDirs is newline separated, and a theme request names the preview
+  // directory instead, so an exact match on either the library or one of its
+  // subject folders is the whole test.
+  function isLocalWallpaperRequest(dirs) {
+    const lib = String(root.wallpaperLib || "").replace(/\/+$/, "")
+    if (lib === "") return false
+    return String(dirs || "")
+      .split("\n")
+      .map((dir) => dir.trim().replace(/\/+$/, ""))
+      .some((dir) => dir !== "" && (dir === lib || dir.startsWith(lib + "/")))
+  }
+
   function scriptPath(name) {
     // LOCAL: list.sh ships in this fork rather than in an omarchy plugin dir.
     return pluginRoot + "/" + name
@@ -646,10 +659,19 @@ Item {
 
     imageDirs = nextImageDirs
     imageRows = nextImageRows
+    // LOCAL: upstream decides this from omarchy's own layout - a request on
+    // current/theme/backgrounds or ~/.config/omarchy/backgrounds is a
+    // wallpaper request, anything else is themes. Neither path exists here, so
+    // the answer was always false and the whole wallpaper half of the overlay
+    // - Wallhaven, favourites, the command centre - was unreachable. The
+    // library is whatever QS_THEME_WALLPAPER_LIB names, so recognise that too.
+    //
+    // Keeping upstream's test first rather than replacing it: it costs
+    // nothing, and it is the line a merge from upstream will want to touch.
     wallpaperPickerRequest = WallpaperBrowserModel.isWallpaperPickerRequest(
       imageDirs,
       imageRows
-    )
+    ) || root.isLocalWallpaperRequest(imageDirs)
     selectedImage = nextSelectedImage
     selectionFile = nextSelectionFile
     doneFile = nextDoneFile
