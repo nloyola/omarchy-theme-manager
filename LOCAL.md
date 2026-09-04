@@ -52,14 +52,14 @@ The one type that had to be written was `Button`, which lives in that config's
 
 **Every theme operation goes through `qs-theme`.**
 
-| upstream | here |
-| --- | --- |
-| `omarchy theme install <url>` | `qs-theme install <url>` |
-| `omarchy theme remove <name>` | `qs-theme remove <name>` |
-| `theme-inventory.sh` walking two theme trees | `qs-theme inventory` |
-| `~/.local/state/omarchy/current/theme.name` | `~/.local/state/theme/theme.name` |
+| upstream                                          | here                                |
+| ------------------------------------------------- | ----------------------------------- |
+| `omarchy theme install <url>`                     | `qs-theme install <url>`            |
+| `omarchy theme remove <name>`                     | `qs-theme remove <name>`            |
+| `theme-inventory.sh` walking two theme trees      | `qs-theme inventory`                |
+| `~/.local/state/omarchy/current/theme.name`       | `~/.local/state/theme/theme.name`   |
 | `~/.config/omarchy/wallpaper-command-center.json` | `~/.local/state/qs-theme-manager/…` |
-| omarchy's theme-selector previews | `qs-theme preview-links` |
+| omarchy's theme-selector previews                 | `qs-theme preview-links`            |
 
 `qs-theme install` refuses a package unless it has a `colors.toml` at its root
 that resolves, records the URL to track it by, and copies its `backgrounds/`
@@ -74,11 +74,11 @@ after cloning the whole thing. So the cursor landing on a tile runs `qs-theme
 check <url>`, which fetches only that repository's `colors.toml` off `HEAD` and
 puts it through the same `resolve` install vets with, writing nothing:
 
-| exit | the button |
-| --- | --- |
-| 0 | `Install` |
-| 4 | `No palette in this package`, disabled |
-| anything else | `Install (unchecked)`, still offered |
+| exit          | the button                             |
+| ------------- | -------------------------------------- |
+| 0             | `Install`                              |
+| 4             | `No palette in this package`, disabled |
+| anything else | `Install (unchecked)`, still offered   |
 
 The last row is why there are three states rather than two. An unknown forge or
 a dropped connection is not a verdict about the package - install itself is

@@ -16,8 +16,7 @@ const labelForThemeName = (name) =>
 // symlinks to each theme's first wallpaper, which is what makes a theme look
 // like an image to the grid. The stem is then the theme name, exactly as it
 // was under omarchy's theme-selector previews.
-const isThemePreviewPath = (path) =>
-  /\/qs-theme\/previews\/[^/]+\.[^/.]+$/.test(stringValue(path))
+const isThemePreviewPath = (path) => /\/qs-theme\/previews\/[^/]+\.[^/.]+$/.test(stringValue(path))
 
 const themeNameForPath = (path) => (isThemePreviewPath(path) ? fileStem(path) : "")
 
