@@ -4,7 +4,7 @@ Manage themes and browse Wallhaven wallpapers from Omarchy's native full-screen
 picker. Both experiences live in the existing Theme Manager plugin, so Omarchy
 still has exactly one replacement for `omarchy.image-picker`.
 
-![Browse themes and Wallhaven from Omarchy's native picker](preview.webp)
+![Omarchy Theme Manager — themes and wallpapers in one native picker](preview.webp)
 
 ## What it adds
 
@@ -37,6 +37,8 @@ still has exactly one replacement for `omarchy.image-picker`.
   explicit **Load more** fallback.
 - Download the selected full-resolution image and apply it through Omarchy's
   existing background-selection round trip.
+
+![A saved local wallpaper with its live palette applied to the native picker](assets/wallpaper-command-center.webp)
 
 The Wallhaven action is shown only for background-picker requests. Theme-picker
 requests keep the theme catalog and uninstall controls; other image-picker

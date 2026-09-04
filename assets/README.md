@@ -1,6 +1,9 @@
 # Showcase assets
 
-- `../preview.webp` — primary marketplace and website preview of the catalog.
+- `../preview.webp` — primary README and marketplace banner, generated for this
+  project from its real wallpaper-command-center acceptance capture.
+- `wallpaper-command-center.webp` — real disposable-VM capture of a saved local
+  wallpaper with its live palette active.
 - `catalog-browse.webp` — wide catalog view showing themes on both sides of the selection.
 - `theme-library.webp` — the installed-theme view with search and active-theme status.
 - `safety-confirmation.webp` — the confirmation step with catalog security notes.
