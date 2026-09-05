@@ -69,6 +69,21 @@ const withoutNamedImage = (images, name) => {
   return values.filter((image) => fileStem(image && image.filePath) !== name)
 }
 
+// LOCAL: the other half of withoutNamedImage. An install has just rescanned
+// the grid and knows the theme it produced by name, not by path - the tile is
+// a symlink whose extension is preview-links' business, not the caller's - so
+// the cursor has to be placed by stem. -1 when the theme is not in the rows,
+// which is what a rescan that raced a removal looks like.
+const indexOfNamedImage = (images, name) => {
+  const values = Array.isArray(images) ? images : []
+  if (!isSafeThemeName(name)) return -1
+  for (let index = 0; index < values.length; index += 1) {
+    const image = values[index]
+    if (fileStem(image && image.filePath) === name) return index
+  }
+  return -1
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     fileStem,
@@ -80,6 +95,7 @@ if (typeof module !== "undefined") {
     themeInventoryFromText,
     hasTheme,
     withoutTheme,
-    withoutNamedImage
+    withoutNamedImage,
+    indexOfNamedImage
   }
 }

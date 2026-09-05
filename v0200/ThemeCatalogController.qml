@@ -236,16 +236,52 @@ Item {
     onExited: function(exitCode) {
       const installedEntry = targetEntry
       targetEntry = null
+
+      if (exitCode === 0 && installedEntry) {
+        // LOCAL: install is only half of what the grid needs. The grid is a
+        // directory of symlinks and install mints none, so until preview-links
+        // has run the new theme has no tile to come back to - which is why a
+        // successful install used to have nothing to show for itself. Still
+        // busy: the pair of them together is what "installed" means here.
+        previewLinksProc.installedSlug = installedEntry.installSlug
+        previewLinksProc.command = [root.themeBin, "preview-links"]
+        previewLinksProc.running = true
+        return
+      }
+
+      root.busy = false
+      root.pumpChecks()
+      root.errorMessage = root.installStderr
+        || "Could not install " + (installedEntry ? installedEntry.displayName : "the theme")
+      root.focusRequested()
+    }
+  }
+
+  // LOCAL: mints the tile for the theme install just wrote. Its stdout is the
+  // previews directory, which the grid already knows - it was opened over it -
+  // so only the exit status is read.
+  Process {
+    id: previewLinksProc
+    property string installedSlug: ""
+
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector { waitForEnd: true }
+
+    onExited: function(exitCode) {
+      const slug = installedSlug
+      installedSlug = ""
       root.busy = false
       root.pumpChecks()
 
-      if (exitCode === 0 && installedEntry) {
-        root.themeInstalled(installedEntry.installSlug)
-      } else {
-        root.errorMessage = root.installStderr
-          || "Could not install " + (installedEntry ? installedEntry.displayName : "the theme")
-        root.focusRequested()
-      }
+      // The theme is installed either way - only its tile is in doubt - so a
+      // failure here still leaves the catalog for the grid, and says why from
+      // there rather than stranding the cursor in the browser.
+      //
+      // After the signal, not before: leaving the catalog drops selectedEntry
+      // to null, and onSelectedEntryChanged clears errorMessage when it does.
+      root.themeInstalled(slug)
+      if (exitCode !== 0)
+        root.errorMessage = "Installed " + slug + ", but could not build its preview"
     }
   }
 }

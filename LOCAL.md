@@ -109,6 +109,19 @@ The theme grid is a directory of `<name>.<ext>` symlinks that
 wallpaper - the same shape omarchy's preview cache had, so the theme name is
 still the file stem and `ThemeManagerModel` reads it unchanged.
 
+**An install ends on the new theme, not on a closed overlay.** Because the grid
+is that directory and `qs-theme install` mints no symlink into it, a finished
+install has produced a theme the grid cannot yet show - so closing the picker,
+which is what a successful install used to do, made installing look exactly
+like doing nothing. A successful install therefore runs `qs-theme preview-links`
+before it reports itself finished, and the browser stays busy across the pair:
+the two together are what "installed" means to the grid. The picker then leaves
+the catalog, rescans the previews directory, and puts the cursor on the theme
+that was just installed - found by stem, since the catalog knows the theme's
+name and not what its preview turned out to be. A failed `preview-links` still
+returns to the grid and says so from there; the theme is installed either way,
+only its tile is in doubt.
+
 **Not forked at all:** the Wallhaven browser, its filter sheet and the palette
 sampler. `aether` and `magick` are what those shell out to, and both are already
 here.

@@ -56,6 +56,8 @@ Item {
   property string filterText: ""
   property var doneFilesToRelease: []
   property bool catalogMode: false
+  // LOCAL: the theme a finished install is waiting for the next scan to reveal.
+  property string pendingInstalledTheme: ""
   property var catalogPreviousImages: []
   property int catalogPreviousIndex: 0
   property string catalogPreviousFilter: ""
@@ -397,6 +399,27 @@ Item {
     if (restoreFocus !== false) Qt.callLater(focusPicker)
   }
 
+  // LOCAL: what a finished install comes back to. It used to be cancel(),
+  // which closed the whole overlay - so the one thing an install produced was
+  // never shown, and installing looked exactly like doing nothing. Come back
+  // to the theme grid instead, rescanned so the new tile is in it, with the
+  // cursor already on the theme that was just installed.
+  //
+  // A rescan rather than splicing a row in, because the row has to come from
+  // the same list.sh pass every other tile came from - the catalog knows a
+  // theme's name, not what its preview turned out to be.
+  function showInstalledTheme(name) {
+    const themeName = String(name || "")
+
+    leaveCatalog(true)
+    themeManager.refreshInventory()
+    if (themeName === "") return
+
+    pendingInstalledTheme = themeName
+    loadedImageRows = ""
+    startImageScan(requestSerial, imageDirs)
+  }
+
   function removeThemeFromRows(name) {
     if (catalogMode || wallhavenMode) return
 
@@ -624,6 +647,7 @@ Item {
   function cancel() {
     if (catalogMode) leaveCatalog(false)
     if (wallhavenMode) leaveWallhaven(false)
+    pendingInstalledTheme = ""
 
     if (requestActive)
       finishDoneFile(doneFile)
@@ -665,6 +689,19 @@ Item {
     root.imageArray = newImages
     root.imagesLoaded = true
 
+    // LOCAL: a just-installed theme is named, not pathed - selectedImage still
+    // points at whatever the cursor was on before the catalog was opened - so
+    // it is placed here, once, on the scan that was started to reveal it.
+    if (root.pendingInstalledTheme !== "") {
+      const installedIndex =
+        ThemeManagerModel.indexOfNamedImage(newImages, root.pendingInstalledTheme)
+      root.pendingInstalledTheme = ""
+      if (installedIndex >= 0) {
+        root.selectedIndex = installedIndex
+        root.selectedImage = newImages[installedIndex].filePath
+      }
+    }
+
     if (reveal !== false) {
       root.opened = true
       root.revealWhenSettled(root.requestSerial)
@@ -677,6 +714,7 @@ Item {
     if (requestActive && doneFile && doneFile !== nextDoneFile)
       finishDoneFile(doneFile)
 
+    pendingInstalledTheme = ""
     requestSerial += 1
 
     imageDirs = nextImageDirs
@@ -907,7 +945,7 @@ Item {
     installedRepositories: themeManager.installedRepositories
     selectedEntry: root.catalogMode ? root.currentItem() : null
     onCatalogLoaded: function(rows) { root.enterCatalog(rows) }
-    onThemeInstalled: root.cancel()
+    onThemeInstalled: function(name) { root.showInstalledTheme(name) }
     onFocusRequested: Qt.callLater(root.focusPicker)
   }
 

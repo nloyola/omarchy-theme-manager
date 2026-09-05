@@ -79,6 +79,38 @@ test("removes only the named theme row without mutating the source array", () =>
   assert.equal(images.length, 3)
 })
 
+test("finds a just-installed theme in rescanned rows by name", () => {
+  const images = [
+    { filePath: "/cache/qs-theme/previews/aetheria.png" },
+    { filePath: "/cache/qs-theme/previews/mechanoonna.png" },
+    { filePath: "/cache/qs-theme/previews/ash.png" }
+  ]
+
+  assert.equal(model.indexOfNamedImage(images, "mechanoonna"), 1)
+  assert.equal(model.indexOfNamedImage(images, "aetheria"), 0)
+})
+
+test("reports a theme missing from the rows rather than a stray index", () => {
+  const images = [{ filePath: "/cache/qs-theme/previews/aetheria.png" }]
+
+  assert.equal(model.indexOfNamedImage(images, "mechanoonna"), -1)
+  assert.equal(model.indexOfNamedImage([], "aetheria"), -1)
+  assert.equal(model.indexOfNamedImage(null, "aetheria"), -1)
+})
+
+test("refuses to place the cursor from an unsafe theme name", () => {
+  const images = [{ filePath: "/cache/qs-theme/previews/aetheria.png" }]
+
+  assert.equal(model.indexOfNamedImage(images, ".."), -1)
+  assert.equal(model.indexOfNamedImage(images, ""), -1)
+})
+
+test("matches the tile by stem, whatever extension preview-links gave it", () => {
+  const images = [{ filePath: "/cache/qs-theme/previews/mechanoonna.jpg" }]
+
+  assert.equal(model.indexOfNamedImage(images, "mechanoonna"), 0)
+})
+
 test("formats theme names for user-facing confirmation and errors", () => {
   assert.equal(model.labelForThemeName("catppuccin_mocha"), "Catppuccin Mocha")
   assert.equal(model.labelForThemeName("tokyo-night"), "Tokyo Night")
