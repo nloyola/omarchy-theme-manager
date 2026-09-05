@@ -31,7 +31,7 @@ Item {
     || (Quickshell.env("HOME") + "/.local/bin/qs-theme")
   // LOCAL: where qs-theme install puts a package's backgrounds.
   readonly property string wallpaperLib: Quickshell.env("QS_THEME_WALLPAPER_LIB")
-    || (Quickshell.env("HOME") + "/Dropbox/wallpapers")
+    || (Quickshell.env("HOME") + "/wallpapers/library")
   // LOCAL: XDG_STATE_HOME honoured, because qs-theme writes there under it.
   property string stateHome: Quickshell.env("XDG_STATE_HOME")
     || (Quickshell.env("HOME") + "/.local/state")

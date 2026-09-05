@@ -72,15 +72,23 @@ case $mode in
         # shape isLocalWallpaperRequest already reads.
         #
         # Two roots, because this desktop has two: the library qs-theme install
-        # copies a theme's backgrounds into, and the local tree beside it.
-        # QS_WALLPAPER_SOURCES overrides with a colon separated list - the same
-        # variable, with the same meaning, as the picker this replaced.
-        sources=${QS_WALLPAPER_SOURCES:-${QS_THEME_WALLPAPER_LIB:-$HOME/Dropbox/wallpapers}:$HOME/wallpapers}
+        # copies a theme's backgrounds into, and the local tree beside it. The
+        # library now lives inside that tree (~/wallpapers/library, a Syncthing
+        # folder, next to the unsynced 4k stash), so the roots overlap - naming
+        # it anyway is what puts its per-theme subdirectories in the grid,
+        # since only a root's immediate children are listed. sort -u drops the
+        # duplicate. QS_WALLPAPER_SOURCES overrides with a colon separated list
+        # - the same variable, with the same meaning, as the picker this
+        # replaced.
+        sources=${QS_WALLPAPER_SOURCES:-${QS_THEME_WALLPAPER_LIB:-$HOME/wallpapers/library}:$HOME/wallpapers}
         image_dirs=$(
             while IFS= read -r root; do
                 [[ -n $root && -d $root ]] || continue
                 printf '%s\n' "$root"
-                find -L "$root" -mindepth 1 -maxdepth 1 -type d -print
+                # -not -name '.*' because the library is a Syncthing folder:
+                # .stfolder is an empty marker and .stversions holds deleted
+                # wallpapers, neither of which belongs in the grid.
+                find -L "$root" -mindepth 1 -maxdepth 1 -type d -not -name '.*' -print
             done <<<"${sources//:/$'\n'}" | sort -u
         )
         [[ -n $image_dirs ]] || { echo "no wallpaper directory in $sources" >&2; exit 3; }
