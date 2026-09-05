@@ -1139,7 +1139,7 @@ Item {
           model: root.imageArray.length
 
           delegate: Item {
-            id: item
+            id: tile
             required property int index
 
             readonly property var imageData: root.imageArray[index]
@@ -1185,170 +1185,199 @@ Item {
             readonly property real bottomRight: root.skewOffset >= 0 ? width - skAbs : width
             readonly property real bottomLeft: root.skewOffset >= 0 ? 0 : skAbs
 
-            Item {
-              id: maskShape
+            // LOCAL: WHY THE TILE IS BEHIND A LOADER. The Repeater above is
+            // modelled on every image in the library, and this desktop hands
+            // it 671 of them. Each tile is a masked layer, a curve-rendered
+            // border and an Image, so building them all up front was 655ms of
+            // the wait before the grid appeared - measured between the scan
+            // returning and the rows landing - and left 671 live tiles for
+            // every step of the cursor to re-lay-out afterwards.
+            //
+            // Only the tiles in `nearby` are ever on screen (the delegate is
+            // `visible: nearby`), so only those are built. Leaving the window
+            // frees the tile as well, which is what keeps a walk through a
+            // large library from growing a texture per image seen.
+            Loader {
               anchors.fill: parent
-              visible: false
-              layer.enabled: true
-
-              Shape {
-                anchors.fill: parent
-                antialiasing: true
-                preferredRendererType: Shape.CurveRenderer
-                ShapePath {
-                  fillColor: "white"
-                  strokeColor: "transparent"
-                  startX: item.topLeft; startY: 0
-                  PathLine { x: item.topRight; y: 0 }
-                  PathLine { x: item.bottomRight; y: item.height }
-                  PathLine { x: item.bottomLeft; y: item.height }
-                  PathLine { x: item.topLeft; y: 0 }
-                }
-              }
+              active: tile.nearby
+              sourceComponent: tileChrome
             }
 
-            Item {
-              anchors.fill: parent
-              layer.enabled: true
-              layer.smooth: true
-              layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: maskShape
-                maskThresholdMin: 0.3
-                maskSpreadAtMin: 0.3
-              }
+            // Declared beside the Loader rather than inline in its
+            // sourceComponent, and the delegate renamed off upstream's `item`:
+            // inside a Loader, `item` is the Loader's own property - the object
+            // it has loaded - and every reference the tile makes to itself
+            // silently became undefined. `tile` is nobody else's name.
+            Component {
+              id: tileChrome
 
-              Rectangle {
-                anchors.fill: parent
-                color: Util.alpha(root.dimColor, 0.88)
-              }
+              Item {
+                Item {
+                  id: maskShape
+                  anchors.fill: parent
+                  visible: false
+                  layer.enabled: true
 
-              Image {
-                id: image
-                anchors.fill: parent
-                // Aether owns local Wallhaven thumbnails. Theme catalog URLs
-                // have already passed ThemeCatalogModel's strict allowlist.
-                source: item.sourceActivated && item.thumbnailPath
-                  ? (root.catalogMode
-                      ? item.thumbnailPath
-                      : Util.fileUrl(item.thumbnailPath))
-                  : ""
-                fillMode: Image.PreserveAspectCrop
-                // LOCAL: async for the local grid too, not just the two remote
-                // ones. Upstream browses a handful of theme backgrounds and
-                // can afford to decode them on the GUI thread; the wallpaper
-                // library here is 658 images, and even thumbnailed, a
-                // synchronous decode per step through the grid is a stutter
-                // you can feel. sourceSize caps the decode at roughly the
-                // slice it is drawn into, so a 62MB original never becomes a
-                // 62MB texture on the way past.
-                asynchronous: true
-                sourceSize.width: root.sliceWidth * 4
-                sourceSize.height: root.sliceHeight * 2
-                cache: true
-                smooth: true
-              }
-
-              Text {
-                anchors.centerIn: parent
-                visible: item.selected
-                  && (root.wallhavenMode || root.catalogMode)
-                  && (!item.thumbnailPath || image.status === Image.Error)
-                text: "Preview unavailable"
-                color: root.foreground
-                font.pixelSize: root.px(Style.font.title)
-                textFormat: Text.PlainText
-              }
-
-              Rectangle {
-                anchors.fill: parent
-                color: Util.alpha(root.dimColor, item.selected ? 0 : 0.42)
-              }
-
-              Text {
-                anchors.top: parent.top
-                anchors.right: parent.right
-                anchors.margins: Style.space(12)
-                visible: root.localWallpaperMode
-                  && WallpaperCommandModel.isFavorite(
-                    root.favoriteIds,
-                    item.filePath,
-                    root.wallpaperFavoriteContext())
-                text: "★"
-                color: root.livePaletteAccent
-                style: Text.Outline
-                styleColor: Util.alpha(root.dimColor, 0.82)
-                font.pixelSize: root.px(item.selected ? Style.font.display : Style.font.title)
-                font.weight: Font.Bold
-                opacity: item.selected ? 1.0 : 0.86
-                Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
-              }
-
-              Rectangle {
-                visible: item.selected && root.livePaletteReady
-                anchors.left: parent.left
-                anchors.bottom: parent.bottom
-                anchors.margins: Style.space(14)
-                width: paletteBadgeRow.implicitWidth + Style.space(18)
-                height: paletteBadgeRow.implicitHeight + Style.space(12)
-                radius: height / 2
-                color: Util.alpha(root.livePaletteBase, 0.86)
-                border.width: 1
-                border.color: Util.alpha(root.livePaletteAccent, 0.8)
-
-                Row {
-                  id: paletteBadgeRow
-                  anchors.centerIn: parent
-                  spacing: Style.space(6)
-
-                  Repeater {
-                    model: [root.livePaletteAccent, root.livePaletteSecondary, root.livePaletteBase]
-                    Rectangle {
-                      required property color modelData
-                      width: Style.space(9)
-                      height: width
-                      radius: width / 2
-                      color: modelData
-                      border.width: 1
-                      border.color: Util.alpha(root.foreground, 0.42)
+                  Shape {
+                    anchors.fill: parent
+                    antialiasing: true
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                      fillColor: "white"
+                      strokeColor: "transparent"
+                      startX: tile.topLeft; startY: 0
+                      PathLine { x: tile.topRight; y: 0 }
+                      PathLine { x: tile.bottomRight; y: tile.height }
+                      PathLine { x: tile.bottomLeft; y: tile.height }
+                      PathLine { x: tile.topLeft; y: 0 }
                     }
+                  }
+                }
+
+                Item {
+                  anchors.fill: parent
+                  layer.enabled: true
+                  layer.smooth: true
+                  layer.effect: MultiEffect {
+                    maskEnabled: true
+                    maskSource: maskShape
+                    maskThresholdMin: 0.3
+                    maskSpreadAtMin: 0.3
+                  }
+
+                  Rectangle {
+                    anchors.fill: parent
+                    color: Util.alpha(root.dimColor, 0.88)
+                  }
+
+                  Image {
+                    id: image
+                    anchors.fill: parent
+                    // Aether owns local Wallhaven thumbnails. Theme catalog URLs
+                    // have already passed ThemeCatalogModel's strict allowlist.
+                    source: tile.sourceActivated && tile.thumbnailPath
+                      ? (root.catalogMode
+                          ? tile.thumbnailPath
+                          : Util.fileUrl(tile.thumbnailPath))
+                      : ""
+                    fillMode: Image.PreserveAspectCrop
+                    // LOCAL: async for the local grid too, not just the two remote
+                    // ones. Upstream browses a handful of theme backgrounds and
+                    // can afford to decode them on the GUI thread; the wallpaper
+                    // library here is 658 images, and even thumbnailed, a
+                    // synchronous decode per step through the grid is a stutter
+                    // you can feel. sourceSize caps the decode at roughly the
+                    // slice it is drawn into, so a 62MB original never becomes a
+                    // 62MB texture on the way past.
+                    asynchronous: true
+                    sourceSize.width: root.sliceWidth * 4
+                    sourceSize.height: root.sliceHeight * 2
+                    cache: true
+                    smooth: true
                   }
 
                   Text {
-                    text: "LIVE PALETTE"
+                    anchors.centerIn: parent
+                    visible: tile.selected
+                      && (root.wallhavenMode || root.catalogMode)
+                      && (!tile.thumbnailPath || image.status === Image.Error)
+                    text: "Preview unavailable"
                     color: root.foreground
-                    font.pixelSize: root.px(Style.font.caption)
-                    font.weight: Font.DemiBold
+                    font.pixelSize: root.px(Style.font.title)
                     textFormat: Text.PlainText
                   }
+
+                  Rectangle {
+                    anchors.fill: parent
+                    color: Util.alpha(root.dimColor, tile.selected ? 0 : 0.42)
+                  }
+
+                  Text {
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.margins: Style.space(12)
+                    visible: root.localWallpaperMode
+                      && WallpaperCommandModel.isFavorite(
+                        root.favoriteIds,
+                        tile.filePath,
+                        root.wallpaperFavoriteContext())
+                    text: "★"
+                    color: root.livePaletteAccent
+                    style: Text.Outline
+                    styleColor: Util.alpha(root.dimColor, 0.82)
+                    font.pixelSize: root.px(tile.selected ? Style.font.display : Style.font.title)
+                    font.weight: Font.Bold
+                    opacity: tile.selected ? 1.0 : 0.86
+                    Behavior on opacity { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                  }
+
+                  Rectangle {
+                    visible: tile.selected && root.livePaletteReady
+                    anchors.left: parent.left
+                    anchors.bottom: parent.bottom
+                    anchors.margins: Style.space(14)
+                    width: paletteBadgeRow.implicitWidth + Style.space(18)
+                    height: paletteBadgeRow.implicitHeight + Style.space(12)
+                    radius: height / 2
+                    color: Util.alpha(root.livePaletteBase, 0.86)
+                    border.width: 1
+                    border.color: Util.alpha(root.livePaletteAccent, 0.8)
+
+                    Row {
+                      id: paletteBadgeRow
+                      anchors.centerIn: parent
+                      spacing: Style.space(6)
+
+                      Repeater {
+                        model: [root.livePaletteAccent, root.livePaletteSecondary, root.livePaletteBase]
+                        Rectangle {
+                          required property color modelData
+                          width: Style.space(9)
+                          height: width
+                          radius: width / 2
+                          color: modelData
+                          border.width: 1
+                          border.color: Util.alpha(root.foreground, 0.42)
+                        }
+                      }
+
+                      Text {
+                        text: "LIVE PALETTE"
+                        color: root.foreground
+                        font.pixelSize: root.px(Style.font.caption)
+                        font.weight: Font.DemiBold
+                        textFormat: Text.PlainText
+                      }
+                    }
+                  }
                 }
-              }
-            }
 
-            Shape {
-              anchors.fill: parent
-              antialiasing: true
-              preferredRendererType: Shape.CurveRenderer
-              ShapePath {
-                fillColor: "transparent"
-                strokeColor: item.selected ? root.activeSelectedBorder : root.unselectedBorder
-                strokeWidth: item.selected ? 3 : 1
-                startX: item.topLeft; startY: 0
-                PathLine { x: item.topRight; y: 0 }
-                PathLine { x: item.bottomRight; y: item.height }
-                PathLine { x: item.bottomLeft; y: item.height }
-                PathLine { x: item.topLeft; y: 0 }
-              }
-            }
+                Shape {
+                  anchors.fill: parent
+                  antialiasing: true
+                  preferredRendererType: Shape.CurveRenderer
+                  ShapePath {
+                    fillColor: "transparent"
+                    strokeColor: tile.selected ? root.activeSelectedBorder : root.unselectedBorder
+                    strokeWidth: tile.selected ? 3 : 1
+                    startX: tile.topLeft; startY: 0
+                    PathLine { x: tile.topRight; y: 0 }
+                    PathLine { x: tile.bottomRight; y: tile.height }
+                    PathLine { x: tile.bottomLeft; y: tile.height }
+                    PathLine { x: tile.topLeft; y: 0 }
+                  }
+                }
 
-            MouseArea {
-              anchors.fill: parent
-              cursorShape: Qt.PointingHandCursor
-              onClicked: {
-                if (item.selected) root.applySelected()
-                else {
-                  root.select(index)
-                  root.focusPicker()
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: {
+                    if (tile.selected) root.applySelected()
+                    else {
+                      root.select(tile.index)
+                      root.focusPicker()
+                    }
+                  }
                 }
               }
             }

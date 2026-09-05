@@ -32,6 +32,20 @@ defaulting to `$QS_THEME_WALLPAPER_LIB` and `~/wallpapers`).
 
 ## What changed, and why
 
+**The open path is not allowed to be slow.** A picker is summoned by a keybind,
+so everything between the keypress and the window is dead time, and on a library
+this size three things were spending it. `list.sh` forked `stat` and `awk` per
+image and rescanned the index linearly for each one - 1300 processes and 14
+seconds before the grid appeared - so it now reads the index once into a map and
+takes each signature from `find -printf`. Its legacy content-keyed thumbnail
+lookup hashed every image on the way past to prove a negative; a legacy
+thumbnail can only be a cached file the index does not account for, so that is
+asked once per run instead of once per image. And the carousel delegate is
+behind a `Loader` keyed on `nearby`: the Repeater is modelled on all 671 images,
+but only the tiles that can be on screen are built. Opening went from ~14s to
+~1s, a walk through the library from a 3.8GB peak to 2.0GB, and the frame gap
+while stepping from a 187ms p90 to 32ms.
+
 **There is a host now.** `Main.qml` is a Quickshell config root that
 instantiates the overlay, opens it once and exits when it closes, and
 `scripts/theme-manager.sh` plays the part omarchy-shell used to: it builds the
